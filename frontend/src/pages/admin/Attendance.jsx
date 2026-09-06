@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { apiRequest } from '../../services/api';
+import { apiRequest, getSelfieUrl } from '../../services/api';
 import LocationModal from '../../components/common/LocationModal';
 import SelfieModal from '../../components/common/SelfieModal';
 import {
@@ -762,7 +762,7 @@ export default function AdminAttendance() {
                         }}
                       >
                         <img
-                          src={`/api/attendance/selfie/${dayDetails.check_in_selfie}?token=${localStorage.getItem('logitrack_token')}`}
+                          src={getSelfieUrl(dayDetails.check_in_selfie)}
                           alt="Check-in selfie"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -877,7 +877,7 @@ export default function AdminAttendance() {
                         }}
                       >
                         <img
-                          src={`/api/attendance/selfie/${dayDetails.check_out_selfie}?token=${localStorage.getItem('logitrack_token')}`}
+                          src={getSelfieUrl(dayDetails.check_out_selfie)}
                           alt="Check-out selfie"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />

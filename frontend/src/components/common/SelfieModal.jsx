@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, X, ShieldCheck, Download, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getSelfieUrl } from '../../services/api';
 
 export default function SelfieModal({ isOpen, onClose, filename, title = "Attendance Selfie", time = null, employeeName = null }) {
   const { token } = useAuth();
@@ -25,8 +26,13 @@ export default function SelfieModal({ isOpen, onClose, filename, title = "Attend
       return;
     }
 
-    // Load through authenticated endpoint
-    const url = `/api/attendance/selfie/${filename}?token=${token || localStorage.getItem('logitrack_token')}`;
+    // Load through authenticated API URL
+    const url = getSelfieUrl(filename);
+    if (!url) {
+      setError(true);
+      setLoading(false);
+      return;
+    }
     
     // Test image loading
     const img = new Image();

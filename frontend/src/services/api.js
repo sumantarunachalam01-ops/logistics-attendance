@@ -1,6 +1,13 @@
 // API Client Helper with Token Interception
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+export function getSelfieUrl(filename) {
+  if (!filename) return null;
+  if (filename.startsWith('data:') || filename.startsWith('http')) return filename;
+  const token = localStorage.getItem('logitrack_token') || '';
+  return `${API_BASE}/attendance/selfie/${filename}?token=${token}`;
+}
 
 export async function apiRequest(endpoint, options = {}) {
   const token = localStorage.getItem('logitrack_token');
