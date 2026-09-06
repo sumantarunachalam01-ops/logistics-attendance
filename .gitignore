@@ -1,0 +1,28 @@
+# Node & Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Python & Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+*.env.local
+.venv/
+venv/
+ENV/
+env/
+
+# Uploads & Temporary artifacts
+backend/uploads/selfies/*.jpg
+!backend/uploads/selfies/emp_*.jpg
+
+# Editor & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+mingit/
