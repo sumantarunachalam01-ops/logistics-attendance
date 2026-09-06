@@ -12,15 +12,22 @@ import {
   Globe,
   HardDrive,
   Trash2,
-  Database
+  Database,
+  RefreshCw,
+  Save,
+  User,
+  ShieldCheck
 } from 'lucide-react';
 
 export default function AdminSettings() {
   const { user } = useAuth();
 
-  const [companyName, setCompanyName] = useState('Seven Stars Logistics Private Limited');
-  const [workHours, setWorkHours] = useState(8);
+  // General Settings
+  const [companyName, setCompanyName] = useState(() => localStorage.getItem('company_name') || 'Seven Stars Logistics Private Limited');
+  const [workHours, setWorkHours] = useState(() => parseInt(localStorage.getItem('system_work_hours')) || 8);
   const [timezone, setTimezone] = useState('Asia/Kolkata (IST +05:30)');
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState({ type: '', text: '' });
 
   // Change password
   const [oldPassword, setOldPassword] = useState('');
@@ -31,12 +38,80 @@ export default function AdminSettings() {
 
   // System Health
   const [healthStatus, setHealthStatus] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   // Storage Stats & Cleanup
   const [storageStats, setStorageStats] = useState(null);
   const [retentionDays, setRetentionDays] = useState(90);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [cleanupMsg, setCleanupMsg] = useState({ type: '', text: '' });
+
+  const fetchGeneralSettings = async () => {
+    try {
+      const res = await apiRequest('/settings/general');
+      if (res.success && res.data) {
+        if (res.data.company_name) {
+          setCompanyName(res.data.company_name);
+          localStorage.setItem('company_name', res.data.company_name);
+        }
+        if (res.data.work_hours) {
+          const wh = parseInt(res.data.work_hours) || 8;
+          setWorkHours(wh);
+          localStorage.setItem('system_work_hours', wh.toString());
+        }
+        if (res.data.timezone) {
+          setTimezone(`${res.data.timezone} (IST +05:30)`);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch remote settings, using local defaults:", err);
+    }
+  };
+
+  const handleSaveGeneralSettings = async (e) => {
+    e.preventDefault();
+    setSettingsSaving(true);
+    setSettingsMsg({ type: '', text: '' });
+
+    try {
+      const res = await apiRequest('/settings/general', {
+        method: 'PUT',
+        body: JSON.stringify({
+          company_name: companyName,
+          work_hours: workHours
+        })
+      });
+
+      if (res.success) {
+        localStorage.setItem('company_name', companyName);
+        localStorage.setItem('system_work_hours', workHours.toString());
+        setSettingsMsg({ type: 'success', text: 'Company & work configuration saved successfully!' });
+      } else {
+        throw new Error(res.message || 'Failed to save settings.');
+      }
+    } catch (err) {
+      // Fallback save to localStorage if backend offline
+      localStorage.setItem('company_name', companyName);
+      localStorage.setItem('system_work_hours', workHours.toString());
+      setSettingsMsg({ type: 'success', text: 'Saved configuration to local browser cache.' });
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const checkHealth = async () => {
+    setHealthLoading(true);
+    try {
+      const res = await apiRequest('/health');
+      if (res.success && res.data) {
+        setHealthStatus(res.data);
+      }
+    } catch (err) {
+      setHealthStatus({ status: 'DOWN', error: err.message });
+    } finally {
+      setHealthLoading(false);
+    }
+  };
 
   const fetchStorageStats = async () => {
     try {
@@ -53,17 +128,8 @@ export default function AdminSettings() {
   };
 
   useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const res = await apiRequest('/health');
-        if (res.success && res.data) {
-          setHealthStatus(res.data);
-        }
-      } catch (err) {
-        setHealthStatus({ status: 'DOWN', error: err.message });
-      }
-    };
     checkHealth();
+    fetchGeneralSettings();
     fetchStorageStats();
   }, []);
 
@@ -136,7 +202,7 @@ export default function AdminSettings() {
         body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
       });
       if (res.success) {
-        setPasswordMsg({ type: 'success', text: 'Password updated successfully.' });
+        setPasswordMsg({ type: 'success', text: 'Password updated successfully. Please remember your new password.' });
         setOldPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -154,12 +220,12 @@ export default function AdminSettings() {
         <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#f8fafc' }}>
           System Settings
         </h1>
-        <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
-          Manage working hour thresholds, company localization, and admin security
+        <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>
+          Manage working hour thresholds, company localization, cloud storage, and administrator security
         </p>
       </div>
 
-      {/* Working Hours & Overtime Rules (Section 18) */}
+      {/* 1. Working Hours & Company Profile */}
       <div style={{
         background: '#111827',
         border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -170,38 +236,74 @@ export default function AdminSettings() {
         gap: '18px',
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: 'rgba(56, 189, 248, 0.15)',
-            color: '#38bdf8',
-            display: 'flex',
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'rgba(56, 189, 248, 0.15)',
+              color: '#38bdf8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Building size={20} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc' }}>
+                Company Profile & Work Hours
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>
+                Operational parameters and standard daily work calculation
+              </p>
+            </div>
+          </div>
+
+          <span style={{
+            display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            gap: '6px',
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            padding: '4px 12px',
+            borderRadius: '9999px',
+            background: 'rgba(56, 189, 248, 0.12)',
+            color: '#38bdf8',
+            border: '1px solid rgba(56, 189, 248, 0.25)'
           }}>
-            <Clock size={20} />
-          </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc' }}>
-              Working Hours & Overtime Rules
-            </h2>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>Section 18 standard work duration calculation</p>
-          </div>
+            <Clock size={13} /> Active Standard Rule
+          </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        {settingsMsg.text && (
+          <div style={{
+            background: settingsMsg.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${settingsMsg.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+            borderRadius: '10px',
+            padding: '10px 14px',
+            color: settingsMsg.type === 'success' ? '#34d399' : '#f87171',
+            fontSize: '0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            {settingsMsg.type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+            <span>{settingsMsg.text}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSaveGeneralSettings} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', color: '#94a3b8', marginBottom: '6px' }}>
-              Standard Daily Working Hours
+              Company / Organization Name
             </label>
             <input
-              type="number"
-              min="1"
-              max="24"
-              value={workHours}
-              onChange={(e) => setWorkHours(parseInt(e.target.value) || 8)}
+              type="text"
+              required
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Seven Stars Logistics Private Limited"
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -213,34 +315,87 @@ export default function AdminSettings() {
                 fontWeight: 600
               }}
             />
-            <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
-              Default: 8 hours (480 minutes) per workday
-            </span>
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', color: '#94a3b8', marginBottom: '6px' }}>
-              Overtime Calculation Rule
-            </label>
-            <div style={{
-              padding: '10px 14px',
-              borderRadius: '10px',
-              background: '#0f172a',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              color: '#34d399',
-              fontSize: '0.88rem',
-              fontWeight: 600
-            }}>
-              Any work &gt; {workHours} hours auto-credited as Overtime
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#94a3b8', marginBottom: '6px' }}>
+                Standard Daily Working Hours
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                required
+                value={workHours}
+                onChange={(e) => setWorkHours(parseInt(e.target.value) || 8)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: '#1e293b',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#f8fafc',
+                  fontSize: '0.92rem',
+                  fontWeight: 600
+                }}
+              />
+              <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                Default: 8 hours ({workHours * 60} minutes) per workday
+              </span>
             </div>
-            <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
-              Example: 09h 30m worked = 01h 30m overtime
-            </span>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#94a3b8', marginBottom: '6px' }}>
+                Overtime Calculation Rule
+              </label>
+              <div style={{
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: '#0f172a',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                color: '#34d399',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+                minHeight: '42px',
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                Work &gt; {workHours} hrs is auto-credited as Overtime
+              </div>
+              <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                Example: {String(workHours + 1).padStart(2, '0')}h 30m worked = 01h 30m overtime
+              </span>
+            </div>
           </div>
-        </div>
+
+          <button
+            type="submit"
+            disabled={settingsSaving}
+            style={{
+              alignSelf: 'flex-start',
+              padding: '10px 20px',
+              borderRadius: '10px',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '0.88rem',
+              fontWeight: 600,
+              cursor: settingsSaving ? 'not-allowed' : 'pointer',
+              opacity: settingsSaving ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginTop: '4px'
+            }}
+          >
+            <Save size={16} />
+            <span>{settingsSaving ? 'Saving Configuration...' : 'Save Configuration'}</span>
+          </button>
+        </form>
       </div>
 
-      {/* Localization & Timezone */}
+      {/* 2. Localization & Timezone */}
       <div style={{
         background: '#111827',
         border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -272,7 +427,7 @@ export default function AdminSettings() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.82rem', color: '#94a3b8', marginBottom: '6px' }}>
               Official Timezone
@@ -295,9 +450,31 @@ export default function AdminSettings() {
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.82rem', color: '#94a3b8', marginBottom: '6px' }}>
-              Backend Health Status
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                Backend API Status
+              </label>
+              <button
+                type="button"
+                onClick={checkHealth}
+                disabled={healthLoading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#38bdf8',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0
+                }}
+              >
+                <RefreshCw size={12} style={{ animation: healthLoading ? 'spin 1s linear infinite' : 'none' }} />
+                <span>Re-check</span>
+              </button>
+            </div>
+
             <div style={{
               padding: '10px 14px',
               borderRadius: '10px',
@@ -311,13 +488,13 @@ export default function AdminSettings() {
               gap: '8px'
             }}>
               <Activity size={16} />
-              <span>{healthStatus?.status === 'UP' ? 'Flask API Online (v2.0.0)' : 'API Connecting...'}</span>
+              <span>{healthStatus?.status === 'UP' ? 'Flask Cloud API Online (v2.0.0)' : 'API Connecting...'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Cloud Storage & Auto-Cleanup */}
+      {/* 3. Cloud Storage & Auto-Cleanup */}
       <div style={{
         background: '#111827',
         border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -536,7 +713,7 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      {/* Admin Password Change */}
+      {/* 4. Admin Account Security */}
       <div style={{
         background: '#111827',
         border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -547,24 +724,41 @@ export default function AdminSettings() {
         gap: '18px',
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'rgba(99, 102, 241, 0.15)',
+              color: '#818cf8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <Lock size={20} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc' }}>
+                Admin Account Security
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>Update administrator credentials</p>
+            </div>
+          </div>
+
           <div style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: 'rgba(99, 102, 241, 0.15)',
-            color: '#818cf8',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            padding: '6px 12px',
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 255, 255, 0.08)'
           }}>
-            <Lock size={20} />
-          </div>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#f8fafc' }}>
-              Admin Account Security
-            </h2>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8' }}>Update administrator credentials</p>
+            <User size={15} style={{ color: '#818cf8' }} />
+            <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
+              Logged in as: <strong style={{ color: '#f8fafc' }}>{user?.email || 'Admin'}</strong>
+            </span>
           </div>
         </div>
 
@@ -608,7 +802,7 @@ export default function AdminSettings() {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', color: '#94a3b8', marginBottom: '6px' }}>
                 New Password
@@ -619,7 +813,7 @@ export default function AdminSettings() {
                 minLength={6}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Minimum 6 chars"
+                placeholder="Minimum 6 characters"
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -642,7 +836,7 @@ export default function AdminSettings() {
                 minLength={6}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Minimum 6 chars"
+                placeholder="Confirm new password"
                 style={{
                   width: '100%',
                   padding: '10px 14px',
@@ -670,10 +864,14 @@ export default function AdminSettings() {
               fontWeight: 600,
               cursor: passwordLoading ? 'not-allowed' : 'pointer',
               opacity: passwordLoading ? 0.7 : 1,
-              marginTop: '4px'
+              marginTop: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
             }}
           >
-            {passwordLoading ? 'Updating Password...' : 'Save Password'}
+            <ShieldCheck size={16} />
+            <span>{passwordLoading ? 'Updating Password...' : 'Save Password'}</span>
           </button>
         </form>
       </div>

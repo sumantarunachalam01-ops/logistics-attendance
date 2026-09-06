@@ -83,3 +83,11 @@ CREATE TABLE attendance (
     INDEX idx_attendance_date (attendance_date),
     INDEX idx_attendance_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4. SYSTEM SETTINGS TABLE
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
