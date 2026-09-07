@@ -199,6 +199,10 @@ export default function StaffDashboard() {
             checkOut: res.data.check_out_formatted,
             duration: res.data.duration_formatted,
             overtime: res.data.overtime_formatted,
+            lat: res.data.latitude || pendingLocation.latitude,
+            lng: res.data.longitude || pendingLocation.longitude,
+            acc: res.data.accuracy || pendingLocation.accuracy,
+            selfie: res.data.selfie_filename,
             message: `Today's working time: ${res.data.duration_formatted}`
           });
         }
@@ -341,6 +345,12 @@ export default function StaffDashboard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
                 <span>Check Out:</span>
                 <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{confirmation.checkOut}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc', fontSize: '0.85rem' }}>
+                <MapPin size={15} /> <span>Out Location Captured (±{confirmation.acc || 15}m)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc', fontSize: '0.85rem' }}>
+                <Camera size={15} /> <span>Out Selfie Captured & Verified</span>
               </div>
               <div style={{
                 display: 'flex',
@@ -657,36 +667,71 @@ export default function StaffDashboard() {
               <div style={{
                 display: 'flex',
                 gap: '8px',
+                flexWrap: 'wrap',
                 paddingTop: '10px',
                 borderTop: '1px solid rgba(255, 255, 255, 0.08)'
               }}>
-                <button
-                  onClick={() => setMapModal({
-                    open: true,
-                    lat: todayData.check_in_latitude,
-                    lng: todayData.check_in_longitude,
-                    acc: todayData.check_in_accuracy,
-                    title: 'Check-In Location',
-                    time: todayData.check_in_formatted
-                  })}
-                  style={{
-                    flex: 1,
-                    background: 'rgba(56, 189, 248, 0.1)',
-                    border: '1px solid rgba(56, 189, 248, 0.25)',
-                    color: '#38bdf8',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <MapPin size={13} /> In Map
-                </button>
+                {todayData.check_in_latitude && (
+                  <button
+                    onClick={() => setMapModal({
+                      open: true,
+                      lat: todayData.check_in_latitude,
+                      lng: todayData.check_in_longitude,
+                      acc: todayData.check_in_accuracy,
+                      title: 'Check-In Location',
+                      time: todayData.check_in_formatted
+                    })}
+                    style={{
+                      flex: '1 1 calc(50% - 4px)',
+                      minWidth: '100px',
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: '#38bdf8',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <MapPin size={13} /> In Map
+                  </button>
+                )}
+
+                {todayData.check_out_latitude && (
+                  <button
+                    onClick={() => setMapModal({
+                      open: true,
+                      lat: todayData.check_out_latitude,
+                      lng: todayData.check_out_longitude,
+                      acc: todayData.check_out_accuracy,
+                      title: 'Check-Out Location',
+                      time: todayData.check_out_formatted
+                    })}
+                    style={{
+                      flex: '1 1 calc(50% - 4px)',
+                      minWidth: '100px',
+                      background: 'rgba(168, 85, 247, 0.1)',
+                      border: '1px solid rgba(168, 85, 247, 0.25)',
+                      color: '#c084fc',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <MapPin size={13} /> Out Map
+                  </button>
+                )}
 
                 {todayData.check_in_selfie && (
                   <button
@@ -697,7 +742,8 @@ export default function StaffDashboard() {
                       time: todayData.check_in_formatted
                     })}
                     style={{
-                      flex: 1,
+                      flex: '1 1 calc(50% - 4px)',
+                      minWidth: '100px',
                       background: 'rgba(16, 185, 129, 0.1)',
                       border: '1px solid rgba(16, 185, 129, 0.25)',
                       color: '#34d399',
@@ -725,7 +771,8 @@ export default function StaffDashboard() {
                       time: todayData.check_out_formatted
                     })}
                     style={{
-                      flex: 1,
+                      flex: '1 1 calc(50% - 4px)',
+                      minWidth: '100px',
                       background: 'rgba(168, 85, 247, 0.1)',
                       border: '1px solid rgba(168, 85, 247, 0.25)',
                       color: '#c084fc',

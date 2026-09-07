@@ -291,7 +291,7 @@ export default function StaffAttendance() {
                           lat: rec.check_in_latitude,
                           lng: rec.check_in_longitude,
                           acc: rec.check_in_accuracy,
-                          title: `Location - ${rec.date_short}`,
+                          title: `Check-In Location - ${rec.date_short}`,
                           time: rec.check_in_formatted
                         })}
                         style={{
@@ -308,7 +308,35 @@ export default function StaffAttendance() {
                           cursor: 'pointer'
                         }}
                       >
-                        <MapPin size={13} /> GPS Location
+                        <MapPin size={13} /> In Map
+                      </button>
+                    )}
+
+                    {rec.check_out_latitude && (
+                      <button
+                        onClick={() => setMapModal({
+                          open: true,
+                          lat: rec.check_out_latitude,
+                          lng: rec.check_out_longitude,
+                          acc: rec.check_out_accuracy,
+                          title: `Check-Out Location - ${rec.date_short}`,
+                          time: rec.check_out_formatted
+                        })}
+                        style={{
+                          background: 'rgba(168, 85, 247, 0.1)',
+                          border: '1px solid rgba(168, 85, 247, 0.25)',
+                          color: '#c084fc',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <MapPin size={13} /> Out Map
                       </button>
                     )}
 

@@ -445,69 +445,130 @@ export default function AdminDashboard() {
 
                     {/* Location Pin Trigger */}
                     <td style={{ padding: '16px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      {row.check_in_latitude ? (
-                        <button
-                          onClick={() => setMapModal({
-                            open: true,
-                            lat: row.check_in_latitude,
-                            lng: row.check_in_longitude,
-                            acc: row.check_in_accuracy,
-                            title: `${row.full_name} — Check-In Location`,
-                            time: row.check_in_formatted
-                          })}
-                          title="View Check-In Coordinates on Map"
-                          style={{
-                            background: 'rgba(56, 189, 248, 0.12)',
-                            border: '1px solid rgba(56, 189, 248, 0.3)',
-                            color: '#38bdf8',
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            fontSize: '0.82rem',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <MapPin size={14} /> 📍
-                        </button>
-                      ) : (
-                        <span style={{ color: '#64748b' }}>—</span>
-                      )}
+                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                        {row.check_in_latitude && (
+                          <button
+                            onClick={() => setMapModal({
+                              open: true,
+                              lat: row.check_in_latitude,
+                              lng: row.check_in_longitude,
+                              acc: row.check_in_accuracy,
+                              title: `${row.full_name} — Check-In Location`,
+                              time: row.check_in_formatted
+                            })}
+                            title="View Check-In Coordinates on Map"
+                            style={{
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                              color: '#38bdf8',
+                              padding: '5px 8px',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <MapPin size={13} /> In
+                          </button>
+                        )}
+                        {row.check_out_latitude && (
+                          <button
+                            onClick={() => setMapModal({
+                              open: true,
+                              lat: row.check_out_latitude,
+                              lng: row.check_out_longitude,
+                              acc: row.check_out_accuracy,
+                              title: `${row.full_name} — Check-Out Location`,
+                              time: row.check_out_formatted
+                            })}
+                            title="View Check-Out Coordinates on Map"
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.12)',
+                              border: '1px solid rgba(168, 85, 247, 0.3)',
+                              color: '#c084fc',
+                              padding: '5px 8px',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <MapPin size={13} /> Out
+                          </button>
+                        )}
+                        {!row.check_in_latitude && !row.check_out_latitude && (
+                          <span style={{ color: '#64748b' }}>—</span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Selfie Trigger */}
                     <td style={{ padding: '16px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      {row.check_in_selfie ? (
-                        <button
-                          onClick={() => setSelfieModal({
-                            open: true,
-                            filename: row.check_in_selfie,
-                            title: `${row.full_name} — Check-In Selfie`,
-                            time: row.check_in_formatted,
-                            employeeName: row.full_name
-                          })}
-                          title="View Verified Check-In Selfie"
-                          style={{
-                            background: 'rgba(16, 185, 129, 0.12)',
-                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                            color: '#34d399',
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            fontSize: '0.82rem',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Camera size={14} /> 📷
-                        </button>
-                      ) : (
-                        <span style={{ color: '#64748b' }}>—</span>
-                      )}
+                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                        {row.check_in_selfie && (
+                          <button
+                            onClick={() => setSelfieModal({
+                              open: true,
+                              filename: row.check_in_selfie,
+                              title: `${row.full_name} — Check-In Selfie`,
+                              time: row.check_in_formatted,
+                              employeeName: row.full_name
+                            })}
+                            title="View Verified Check-In Selfie"
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.12)',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              color: '#34d399',
+                              padding: '5px 8px',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Camera size={13} /> In
+                          </button>
+                        )}
+                        {row.check_out_selfie && (
+                          <button
+                            onClick={() => setSelfieModal({
+                              open: true,
+                              filename: row.check_out_selfie,
+                              title: `${row.full_name} — Check-Out Selfie`,
+                              time: row.check_out_formatted,
+                              employeeName: row.full_name
+                            })}
+                            title="View Verified Check-Out Selfie"
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.12)',
+                              border: '1px solid rgba(168, 85, 247, 0.3)',
+                              color: '#c084fc',
+                              padding: '5px 8px',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Camera size={13} /> Out
+                          </button>
+                        )}
+                        {!row.check_in_selfie && !row.check_out_selfie && (
+                          <span style={{ color: '#64748b' }}>—</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
