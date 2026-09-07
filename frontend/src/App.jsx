@@ -37,15 +37,18 @@ function ProtectedRoute({ children, allowedRoles }) {
 
 // Admin Layout Shell
 function AdminLayout({ children }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)' }}>
-      <Navbar />
-      <div style={{ display: 'flex', flex: 1 }}>
-        <Sidebar />
-        <main style={{ flex: 1, overflowY: 'auto' }}>
+      <Navbar onToggleMobileMenu={() => setMobileMenuOpen(prev => !prev)} isMobileMenuOpen={mobileMenuOpen} />
+      <div style={{ display: 'flex', flex: 1, minWidth: 0, position: 'relative' }}>
+        <Sidebar isMobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+        <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
           {children}
         </main>
       </div>
+      <BottomNav />
     </div>
   );
 }
@@ -55,7 +58,7 @@ function StaffLayout({ children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <Navbar />
-      <main style={{ flex: 1, overflowY: 'auto' }}>
+      <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
         {children}
       </main>
       <BottomNav />

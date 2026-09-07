@@ -373,14 +373,82 @@ p {
   animation: pulseGlow 2s infinite ease-in-out;
 }
 
-/* Mobile Layout Helpers */
+/* Mobile Layout & Orientation Helpers */
+.desktop-sidebar {
+  display: flex !important;
+}
+
+.mobile-bottom-nav {
+  display: none !important;
+}
+
+.admin-page-container {
+  padding: 28px;
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Tablets and Mobile Phones */
 @media (max-width: 768px) {
   .desktop-only {
     display: none !important;
   }
+
+  .desktop-sidebar {
+    display: none !important;
+  }
+
+  .mobile-bottom-nav {
+    display: flex !important;
+  }
+
+  .admin-page-container {
+    padding: 16px 12px 84px 12px;
+    gap: 18px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
 }
+
 @media (min-width: 769px) {
   .mobile-only {
     display: none !important;
   }
 }
+
+/* Orientation: Landscape on Phones (Short height) */
+@media (orientation: landscape) and (max-height: 500px) {
+  .admin-page-container {
+    padding: 12px 14px 70px 14px;
+    gap: 14px;
+  }
+
+  .mobile-bottom-nav {
+    height: 50px !important;
+  }
+
+  .mobile-bottom-nav a {
+    padding: 3px 10px !important;
+    font-size: 0.7rem !important;
+  }
+}
+

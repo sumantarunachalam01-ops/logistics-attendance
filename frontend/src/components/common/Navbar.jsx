@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, User, Clock, Shield } from 'lucide-react';
+import { LogOut, Clock, Menu, X } from 'lucide-react';
 
-export default function Navbar() {
+export default function Navbar({ onToggleMobileMenu, isMobileMenuOpen }) {
   const { user, logout } = useAuth();
   const [currentTime, setCurrentTime] = useState('');
 
@@ -27,23 +27,45 @@ export default function Navbar() {
 
   return (
     <header style={{
-      height: '64px',
+      height: '60px',
       background: '#111827',
       borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 24px',
+      padding: '0 16px',
       position: 'sticky',
       top: 0,
       zIndex: 40
     }}>
-      {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* Left: Mobile Toggle + Brand */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            className="mobile-only"
+            aria-label="Toggle navigation menu"
+            style={{
+              background: 'rgba(255, 255, 255, 0.06)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#f8fafc',
+              padding: '7px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: '2px'
+            }}
+          >
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        )}
+
         <div style={{
-          width: '38px',
-          height: '38px',
-          borderRadius: '10px',
+          width: '34px',
+          height: '34px',
+          borderRadius: '9px',
           background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
           display: 'flex',
           alignItems: 'center',
@@ -51,52 +73,59 @@ export default function Navbar() {
           boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
           color: '#ffffff',
           fontWeight: 800,
-          fontSize: '18px'
+          fontSize: '16px',
+          flexShrink: 0
         }}>
           📍
         </div>
-        <div>
-          <span style={{ fontSize: '1.08rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.01em' }}>
-            Staff Attendance Portal
+        <div style={{ overflow: 'hidden' }}>
+          <span style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
+            Attendance Portal
           </span>
-          <span style={{
-            display: 'block',
-            fontSize: '0.72rem',
-            color: '#38bdf8',
-            fontWeight: 500,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em'
-          }}>
+          <span
+            className="desktop-only"
+            style={{
+              display: 'block',
+              fontSize: '0.68rem',
+              color: '#38bdf8',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              whiteSpace: 'nowrap'
+            }}
+          >
             GPS Location & Selfie Verification
           </span>
         </div>
       </div>
 
-      {/* Center/Right Items */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+      {/* Right Items */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         {/* Live IST Clock */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '9999px',
-          padding: '6px 14px',
-          fontSize: '0.85rem',
-          color: '#94a3b8'
-        }}>
-          <Clock size={15} style={{ color: '#38bdf8' }} />
+        <div
+          className="desktop-only"
+          style={{
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '9999px',
+            padding: '5px 12px',
+            fontSize: '0.82rem',
+            color: '#94a3b8'
+          }}
+        >
+          <Clock size={14} style={{ color: '#38bdf8' }} />
           <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{currentTime || 'Loading...'}</span>
-          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>IST</span>
+          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>IST</span>
         </div>
 
         {/* User Badge */}
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{
-              width: '34px',
-              height: '34px',
+              width: '32px',
+              height: '32px',
               borderRadius: '50%',
               background: user.role === 'ADMIN' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(16, 185, 129, 0.2)',
               border: `1px solid ${user.role === 'ADMIN' ? 'rgba(99, 102, 241, 0.4)' : 'rgba(16, 185, 129, 0.4)'}`,
@@ -105,16 +134,17 @@ export default function Navbar() {
               justifyContent: 'center',
               color: user.role === 'ADMIN' ? '#818cf8' : '#34d399',
               fontWeight: 700,
-              fontSize: '0.88rem'
+              fontSize: '0.82rem',
+              flexShrink: 0
             }}>
               {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
             </div>
 
-            <div style={{ display: 'none', mdDisplay: 'block' }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc', lineHeight: 1.2 }}>
+            <div className="desktop-only">
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#f8fafc', lineHeight: 1.2, maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.full_name || user.email}
               </div>
-              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
                 <span style={{
                   color: user.role === 'ADMIN' ? '#818cf8' : '#34d399',
                   fontWeight: 600
@@ -135,21 +165,23 @@ export default function Navbar() {
             background: 'rgba(239, 68, 68, 0.1)',
             border: '1px solid rgba(239, 68, 68, 0.25)',
             color: '#f87171',
-            borderRadius: '10px',
-            padding: '8px 14px',
-            fontSize: '0.85rem',
+            borderRadius: '9px',
+            padding: '7px 12px',
+            fontSize: '0.82rem',
             fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             cursor: 'pointer',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            flexShrink: 0
           }}
         >
-          <LogOut size={16} />
-          <span style={{ display: 'inline' }}>Logout</span>
+          <LogOut size={15} />
+          <span className="desktop-only">Logout</span>
         </button>
       </div>
     </header>
   );
 }
+

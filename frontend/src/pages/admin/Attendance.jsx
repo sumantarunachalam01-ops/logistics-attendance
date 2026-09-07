@@ -169,7 +169,7 @@ export default function AdminAttendance() {
   const selectedEmpName = attendanceData?.summary?.employee?.full_name || employees.find(e => e.id === selectedEmpId)?.full_name || 'Employee';
 
   return (
-    <div style={{ padding: '28px', maxWidth: '1280px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="admin-page-container">
       {/* Top Filter Bar */}
       <div style={{
         background: '#111827',

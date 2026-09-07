@@ -9,10 +9,11 @@ import {
   Settings,
   Home,
   User,
-  LogOut
+  LogOut,
+  X
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ isMobileOpen = false, onClose = () => {} }) {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
@@ -32,27 +33,42 @@ export default function Sidebar() {
 
   const links = isAdmin ? adminLinks : staffLinks;
 
-  return (
-    <aside style={{
-      width: '240px',
-      background: '#0f172a',
-      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      padding: '20px 14px',
-      flexShrink: 0
-    }}>
+  const renderNavContent = (isMobile = false) => (
+    <>
       <div>
         <div style={{
-          padding: '0 12px 16px 12px',
-          fontSize: '0.72rem',
-          fontWeight: 700,
-          color: '#64748b',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em'
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 12px 16px 12px'
         }}>
-          {isAdmin ? 'Administration' : 'Staff Portal'}
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            color: '#64748b',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em'
+          }}>
+            {isAdmin ? 'Administration' : 'Staff Portal'}
+          </span>
+          {isMobile && (
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '5px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -62,6 +78,7 @@ export default function Sidebar() {
               <NavLink
                 key={link.to}
                 to={link.to}
+                onClick={isMobile ? onClose : undefined}
                 style={({ isActive }) => ({
                   display: 'flex',
                   alignItems: 'center',
@@ -111,7 +128,8 @@ export default function Sidebar() {
             justifyContent: 'center',
             color: isAdmin ? '#818cf8' : '#34d399',
             fontWeight: 700,
-            fontSize: '0.85rem'
+            fontSize: '0.85rem',
+            flexShrink: 0
           }}>
             {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
           </div>
@@ -126,7 +144,7 @@ export default function Sidebar() {
         </div>
 
         <button
-          onClick={logout}
+          onClick={() => { if (isMobile) onClose(); logout(); }}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -146,6 +164,65 @@ export default function Sidebar() {
           <span>Sign Out</span>
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* 1. Desktop Persistent Sidebar */}
+      <aside
+        className="desktop-sidebar"
+        style={{
+          width: '240px',
+          background: '#0f172a',
+          borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '20px 14px',
+          flexShrink: 0,
+          minHeight: 'calc(100vh - 60px)',
+          position: 'sticky',
+          top: '60px'
+        }}
+      >
+        {renderNavContent(false)}
+      </aside>
+
+      {/* 2. Mobile Slide-out Drawer */}
+      {isMobileOpen && (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            animation: 'fadeIn 0.15s ease'
+          }}
+        >
+          <aside
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '280px',
+              maxWidth: '85vw',
+              height: '100%',
+              background: '#0f172a',
+              borderRight: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              padding: '20px 16px',
+              animation: 'slideInLeft 0.25s ease-out'
+            }}
+          >
+            {renderNavContent(true)}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }
+

@@ -215,7 +215,7 @@ export default function AdminSettings() {
   };
 
   return (
-    <div style={{ padding: '28px', maxWidth: '840px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="admin-page-container" style={{ maxWidth: '840px' }}>
       <div>
         <h1 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 800, color: '#f8fafc' }}>
           System Settings
