@@ -137,6 +137,10 @@ def cleanup_oldest_batch_until_headroom(target_free_mb=DEFAULT_HEADROOM_MB, admi
                             day_bytes_freed += fsize
                         except OSError:
                             pass
+                    try:
+                        execute("DELETE FROM selfie_storage WHERE filename = %s", (selfie,))
+                    except Exception:
+                        pass
 
         # 2. Delete database records for this date across ALL staff simultaneously
         with get_db_cursor(commit=True) as cursor:
@@ -245,6 +249,10 @@ def perform_manual_storage_cleanup(retention_days=90, admin_user_id=None):
                         files_deleted += 1
                     except OSError:
                         pass
+                try:
+                    execute("DELETE FROM selfie_storage WHERE filename = %s", (selfie,))
+                except Exception:
+                    pass
 
     # 2. Delete database records across ALL staff simultaneously
     with get_db_cursor(commit=True) as cursor:

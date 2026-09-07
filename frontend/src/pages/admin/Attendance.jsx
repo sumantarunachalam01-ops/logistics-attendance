@@ -765,6 +765,15 @@ export default function AdminAttendance() {
                           src={getSelfieUrl(dayDetails.check_in_selfie)}
                           alt="Check-in selfie"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            if (e.currentTarget.nextSibling) {
+                              e.currentTarget.parentElement.style.display = 'flex';
+                              e.currentTarget.parentElement.style.alignItems = 'center';
+                              e.currentTarget.parentElement.style.justifyContent = 'center';
+                              e.currentTarget.parentElement.style.background = '#1e293b';
+                            }
+                          }}
                         />
                         <div style={{
                           position: 'absolute',
@@ -880,6 +889,15 @@ export default function AdminAttendance() {
                           src={getSelfieUrl(dayDetails.check_out_selfie)}
                           alt="Check-out selfie"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            if (e.currentTarget.nextSibling) {
+                              e.currentTarget.parentElement.style.display = 'flex';
+                              e.currentTarget.parentElement.style.alignItems = 'center';
+                              e.currentTarget.parentElement.style.justifyContent = 'center';
+                              e.currentTarget.parentElement.style.background = '#1e293b';
+                            }
+                          }}
                         />
                         <div style={{
                           position: 'absolute',

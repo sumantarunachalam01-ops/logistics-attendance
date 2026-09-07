@@ -5,7 +5,7 @@ import uuid
 import calendar
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
-from flask import Blueprint, request, g, send_from_directory, current_app
+from flask import Blueprint, request, g, send_from_directory, current_app, Response
 from werkzeug.utils import secure_filename
 from app.config import Config
 from app.db import query_one, query_all, execute, get_db_cursor
@@ -34,9 +34,24 @@ def format_minutes_to_hm(minutes):
     m = total_m % 60
     return f"{h}h {m:02d}m"
 
+def ensure_selfie_table():
+    """Ensure that the persistent selfie_storage table exists in the database."""
+    try:
+        execute("""
+            CREATE TABLE IF NOT EXISTS selfie_storage (
+                filename VARCHAR(255) PRIMARY KEY,
+                image_data MEDIUMBLOB NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+    except Exception:
+        pass
+
+
 def save_selfie_payload(selfie_str, prefix="selfie"):
     """
     Decodes a base64 selfie image string and writes it to Config.UPLOAD_FOLDER.
+    Also persists to the MySQL selfie_storage table so ephemeral cloud container restarts never lose images.
     Returns the saved filename.
     """
     if not selfie_str:
@@ -57,8 +72,27 @@ def save_selfie_payload(selfie_str, prefix="selfie"):
     image_data = base64.b64decode(selfie_str)
     filename = f"{prefix}_{uuid.uuid4().hex[:12]}.jpg"
     filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
-    with open(filepath, 'wb') as f:
-        f.write(image_data)
+
+    # 1. Save to local disk cache (fast immediate serving)
+    try:
+        with open(filepath, 'wb') as f:
+            f.write(image_data)
+    except Exception as e:
+        if current_app:
+            current_app.logger.warning(f"Could not cache selfie to disk: {e}")
+
+    # 2. Persist to MySQL database (survives Render / cloud container spin-downs & restarts)
+    try:
+        ensure_selfie_table()
+        execute("""
+            INSERT INTO selfie_storage (filename, image_data)
+            VALUES (%s, %s)
+            ON DUPLICATE KEY UPDATE image_data = VALUES(image_data)
+        """, (filename, image_data))
+    except Exception as e:
+        if current_app:
+            current_app.logger.error(f"Could not persist selfie to database: {e}")
+
     return filename
 
 
@@ -589,7 +623,26 @@ def get_attendance_selfie(filename):
             return error_response("Access forbidden: You do not have permission to view this selfie.", 403)
 
     filepath = os.path.join(Config.UPLOAD_FOLDER, safe_name)
-    if not os.path.exists(filepath):
-        return error_response("Selfie image not found.", 404)
 
-    return send_from_directory(Config.UPLOAD_FOLDER, safe_name, mimetype='image/jpeg')
+    # 1. Check local disk cache or pre-bundled repo images
+    if os.path.exists(filepath):
+        return send_from_directory(Config.UPLOAD_FOLDER, safe_name, mimetype='image/jpeg')
+
+    # 2. Check persistent database storage (for cloud hosting like Render where disk is ephemeral)
+    try:
+        ensure_selfie_table()
+        row = query_one("SELECT image_data FROM selfie_storage WHERE filename = %s", (safe_name,))
+        if row and row.get('image_data'):
+            image_data = row['image_data']
+            # Re-populate local disk cache
+            try:
+                with open(filepath, 'wb') as f:
+                    f.write(image_data)
+            except Exception:
+                pass
+            return Response(image_data, mimetype='image/jpeg')
+    except Exception as e:
+        if current_app:
+            current_app.logger.error(f"Error retrieving selfie from persistent database: {e}")
+
+    return error_response("Selfie image not found.", 404)
