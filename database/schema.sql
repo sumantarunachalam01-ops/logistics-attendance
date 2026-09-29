@@ -76,6 +76,18 @@ CREATE TABLE attendance (
     overtime_minutes INT NOT NULL DEFAULT 0,
     status ENUM('PRESENT', 'ABSENT', 'LEAVE', 'HALF_DAY', 'WEEK_OFF', 'HOLIDAY') NOT NULL DEFAULT 'PRESENT',
     remarks TEXT NULL,
+    ot_check_in_time DATETIME NULL,
+    ot_check_out_time DATETIME NULL,
+    ot_check_in_latitude DECIMAL(10, 7) NULL,
+    ot_check_in_longitude DECIMAL(10, 7) NULL,
+    ot_check_in_accuracy DECIMAL(8, 2) NULL,
+    ot_check_out_latitude DECIMAL(10, 7) NULL,
+    ot_check_out_longitude DECIMAL(10, 7) NULL,
+    ot_check_out_accuracy DECIMAL(8, 2) NULL,
+    ot_check_in_selfie VARCHAR(255) NULL,
+    ot_check_out_selfie VARCHAR(255) NULL,
+    ot_work_minutes INT NOT NULL DEFAULT 0,
+    ot_status VARCHAR(20) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_attendance_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
@@ -84,14 +96,41 @@ CREATE TABLE attendance (
     INDEX idx_attendance_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. SYSTEM SETTINGS TABLE
+-- 4. ATTENDANCE OVERTIME SESSION TABLE
+CREATE TABLE IF NOT EXISTS attendance_overtime (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    attendance_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    overtime_date DATE NOT NULL,
+    check_in_time DATETIME NOT NULL,
+    check_out_time DATETIME NULL,
+    check_in_latitude DECIMAL(10, 7) NULL,
+    check_in_longitude DECIMAL(10, 7) NULL,
+    check_in_accuracy DECIMAL(8, 2) NULL,
+    check_out_latitude DECIMAL(10, 7) NULL,
+    check_out_longitude DECIMAL(10, 7) NULL,
+    check_out_accuracy DECIMAL(8, 2) NULL,
+    check_in_selfie VARCHAR(255) NULL,
+    check_out_selfie VARCHAR(255) NULL,
+    duration_minutes INT NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    remarks TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ot_attendance FOREIGN KEY (attendance_id) REFERENCES attendance(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ot_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+    INDEX idx_ot_emp_date (employee_id, overtime_date),
+    INDEX idx_ot_attendance (attendance_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. SYSTEM SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS system_settings (
     setting_key VARCHAR(100) PRIMARY KEY,
     setting_value TEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. PERSISTENT CLOUD SELFIE STORAGE TABLE
+-- 6. PERSISTENT CLOUD SELFIE STORAGE TABLE
 CREATE TABLE IF NOT EXISTS selfie_storage (
     filename VARCHAR(255) PRIMARY KEY,
     image_data MEDIUMBLOB NOT NULL,

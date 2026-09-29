@@ -10,6 +10,13 @@ def create_app():
     # Enable Cross-Origin Resource Sharing
     CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
+    # Ensure database schema is migrated safely and non-destructively
+    try:
+        from app.db import ensure_overtime_schema
+        ensure_overtime_schema()
+    except Exception as e:
+        app.logger.warning(f"Auto-schema check deferred: {e}")
+
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])
     def health():

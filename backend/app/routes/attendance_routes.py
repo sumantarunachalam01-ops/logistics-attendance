@@ -314,6 +314,279 @@ def end_attendance():
     )
 
 
+@attendance_bp.route('/overtime/start', methods=['POST'])
+@jwt_required
+def start_overtime():
+    """
+    Start an overtime / night shift session:
+    Requires live camera selfie, GPS coordinates, accuracy.
+    Generates official server timestamp (Asia/Kolkata).
+    """
+    employee_id = g.user.get('employee_id')
+    if not employee_id:
+        return error_response("Only registered employees can mark overtime attendance.", 403)
+
+    data = request.get_json() or {}
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    accuracy = data.get('accuracy', 0.0)
+    selfie_data = data.get('selfie')
+
+    if latitude is None or longitude is None:
+        return error_response("GPS coordinates are strictly required to start overtime.", 400)
+
+    try:
+        lat = float(latitude)
+        lng = float(longitude)
+        acc = float(accuracy) if accuracy is not None else 0.0
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
+            return error_response("Invalid GPS coordinate values.", 400)
+    except (ValueError, TypeError):
+        return error_response("Coordinates must be valid numeric values.", 400)
+
+    if not selfie_data:
+        return error_response("Camera selfie capture is required to start overtime.", 400)
+
+    now_ist = get_kolkata_now()
+    today_str = now_ist.strftime('%Y-%m-%d')
+    server_time_str = now_ist.strftime('%Y-%m-%d %H:%M:%S')
+
+    record = query_one(
+        "SELECT id, ot_status, ot_check_in_time, ot_check_out_time FROM attendance WHERE employee_id = %s AND attendance_date = %s",
+        (employee_id, today_str)
+    )
+
+    if record and record.get('ot_status') == 'ACTIVE':
+        return error_response("An overtime session is already active. Please end the current overtime first.", 400)
+
+    # Save selfie
+    try:
+        selfie_filename = save_selfie_payload(selfie_data, prefix=f"ot_in_emp{employee_id}_{today_str}")
+    except Exception as e:
+        return error_response(f"Failed to process overtime selfie image: {str(e)}", 400)
+
+    if record:
+        execute(
+            """
+            UPDATE attendance
+            SET ot_check_in_time = %s,
+                ot_check_in_latitude = %s,
+                ot_check_in_longitude = %s,
+                ot_check_in_accuracy = %s,
+                ot_check_in_selfie = %s,
+                ot_check_out_time = NULL,
+                ot_check_out_latitude = NULL,
+                ot_check_out_longitude = NULL,
+                ot_check_out_accuracy = NULL,
+                ot_check_out_selfie = NULL,
+                ot_status = 'ACTIVE',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+            """,
+            (server_time_str, lat, lng, acc, selfie_filename, record['id'])
+        )
+        record_id = record['id']
+    else:
+        # Standalone overtime without prior day shift
+        res = execute(
+            """
+            INSERT INTO attendance
+              (employee_id, attendance_date, status, total_work_minutes, overtime_minutes,
+               ot_check_in_time, ot_check_in_latitude, ot_check_in_longitude, ot_check_in_accuracy,
+               ot_check_in_selfie, ot_status)
+            VALUES
+              (%s, %s, 'PRESENT', 0, 0, %s, %s, %s, %s, %s, 'ACTIVE')
+            """,
+            (employee_id, today_str, server_time_str, lat, lng, acc, selfie_filename)
+        )
+        record_id = res['lastrowid']
+
+    # Record historical session in attendance_overtime
+    try:
+        execute(
+            """
+            INSERT INTO attendance_overtime
+              (attendance_id, employee_id, overtime_date, check_in_time,
+               check_in_latitude, check_in_longitude, check_in_accuracy,
+               check_in_selfie, status)
+            VALUES
+              (%s, %s, %s, %s, %s, %s, %s, %s, 'ACTIVE')
+            """,
+            (record_id, employee_id, today_str, server_time_str, lat, lng, acc, selfie_filename)
+        )
+    except Exception:
+        pass
+
+    log_audit(
+        user_id=g.user['id'],
+        action='OVERTIME_STARTED',
+        entity_type='ATTENDANCE',
+        entity_id=record_id,
+        description=f"Overtime attendance started at {server_time_str} IST (Lat: {lat}, Lng: {lng}, Acc: ±{acc}m)"
+    )
+
+    formatted_time = now_ist.strftime('%I:%M %p')
+    return success_response(
+        data={
+            'id': record_id,
+            'attendance_date': today_str,
+            'ot_check_in_time': server_time_str,
+            'ot_check_in_formatted': formatted_time,
+            'latitude': lat,
+            'longitude': lng,
+            'accuracy': acc,
+            'selfie_filename': selfie_filename,
+            'ot_status': 'ACTIVE',
+            'message': 'Overtime Attendance Started Successfully'
+        },
+        message="Overtime Attendance Started Successfully"
+    )
+
+
+@attendance_bp.route('/overtime/end', methods=['POST'])
+@jwt_required
+def end_overtime():
+    """
+    End active overtime / night shift session:
+    Captures checkout selfie, GPS coordinates, accuracy.
+    Generates official server timestamp and calculates overtime duration.
+    """
+    employee_id = g.user.get('employee_id')
+    if not employee_id:
+        return error_response("Only registered employees can mark overtime attendance.", 403)
+
+    data = request.get_json() or {}
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    accuracy = data.get('accuracy', 0.0)
+    selfie_data = data.get('selfie')
+
+    if latitude is None or longitude is None:
+        return error_response("GPS coordinates are strictly required to end overtime.", 400)
+
+    try:
+        lat = float(latitude)
+        lng = float(longitude)
+        acc = float(accuracy) if accuracy is not None else 0.0
+    except (ValueError, TypeError):
+        return error_response("Coordinates must be valid numeric values.", 400)
+
+    if not selfie_data:
+        return error_response("Camera selfie capture is required to end overtime.", 400)
+
+    now_ist = get_kolkata_now()
+    today_str = now_ist.strftime('%Y-%m-%d')
+    server_time_str = now_ist.strftime('%Y-%m-%d %H:%M:%S')
+
+    record = query_one(
+        """SELECT id, ot_check_in_time, ot_check_out_time, ot_status, 
+                  total_work_minutes, overtime_minutes, ot_work_minutes 
+           FROM attendance WHERE employee_id = %s AND attendance_date = %s""",
+        (employee_id, today_str)
+    )
+
+    if not record or not record.get('ot_check_in_time') or record.get('ot_status') != 'ACTIVE':
+        return error_response("No active overtime session found for today. Please start overtime first.", 400)
+
+    # Calculate overtime duration
+    ot_check_in_dt = record['ot_check_in_time']
+    if isinstance(ot_check_in_dt, str):
+        ot_check_in_dt = datetime.fromisoformat(ot_check_in_dt)
+
+    if ot_check_in_dt.tzinfo is None:
+        ot_check_in_dt = ot_check_in_dt.replace(tzinfo=ZoneInfo(Config.TIMEZONE))
+
+    diff_seconds = (now_ist - ot_check_in_dt).total_seconds()
+    session_ot_minutes = max(0, int(diff_seconds // 60))
+
+    prev_ot_work = record.get('ot_work_minutes') or 0
+    new_ot_work_minutes = prev_ot_work + session_ot_minutes
+
+    prev_day_ot = record.get('overtime_minutes') or 0
+    new_overtime_minutes = prev_day_ot + session_ot_minutes
+
+    prev_total_work = record.get('total_work_minutes') or 0
+    new_total_work_minutes = prev_total_work + session_ot_minutes
+
+    # Save selfie
+    try:
+        selfie_filename = save_selfie_payload(selfie_data, prefix=f"ot_out_emp{employee_id}_{today_str}")
+    except Exception as e:
+        return error_response(f"Failed to process overtime selfie image: {str(e)}", 400)
+
+    execute(
+        """
+        UPDATE attendance
+        SET ot_check_out_time = %s,
+            ot_check_out_latitude = %s,
+            ot_check_out_longitude = %s,
+            ot_check_out_accuracy = %s,
+            ot_check_out_selfie = %s,
+            ot_work_minutes = %s,
+            overtime_minutes = %s,
+            total_work_minutes = %s,
+            ot_status = 'COMPLETED',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+        """,
+        (server_time_str, lat, lng, acc, selfie_filename,
+         new_ot_work_minutes, new_overtime_minutes, new_total_work_minutes, record['id'])
+    )
+
+    # Update active row in attendance_overtime
+    try:
+        execute(
+            """
+            UPDATE attendance_overtime
+            SET check_out_time = %s,
+                check_out_latitude = %s,
+                check_out_longitude = %s,
+                check_out_accuracy = %s,
+                check_out_selfie = %s,
+                duration_minutes = %s,
+                status = 'COMPLETED',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE attendance_id = %s AND status = 'ACTIVE'
+            ORDER BY id DESC LIMIT 1
+            """,
+            (server_time_str, lat, lng, acc, selfie_filename, session_ot_minutes, record['id'])
+        )
+    except Exception:
+        pass
+
+    log_audit(
+        user_id=g.user['id'],
+        action='OVERTIME_COMPLETED',
+        entity_type='ATTENDANCE',
+        entity_id=record['id'],
+        description=f"Overtime completed at {server_time_str} IST. Duration: {session_ot_minutes}m, Total Day OT: {new_overtime_minutes}m"
+    )
+
+    ot_check_in_formatted = ot_check_in_dt.strftime('%I:%M %p')
+    ot_check_out_formatted = now_ist.strftime('%I:%M %p')
+    ot_duration_formatted = format_minutes_to_hm(session_ot_minutes)
+    total_day_work_formatted = format_minutes_to_hm(new_total_work_minutes)
+
+    return success_response(
+        data={
+            'id': record['id'],
+            'ot_check_in_formatted': ot_check_in_formatted,
+            'ot_check_out_formatted': ot_check_out_formatted,
+            'latitude': lat,
+            'longitude': lng,
+            'accuracy': acc,
+            'selfie_filename': selfie_filename,
+            'session_ot_minutes': session_ot_minutes,
+            'ot_duration_formatted': ot_duration_formatted,
+            'total_ot_minutes': new_overtime_minutes,
+            'total_day_work_formatted': total_day_work_formatted,
+            'ot_status': 'COMPLETED',
+            'message': 'Overtime Attendance Completed Successfully'
+        },
+        message="Overtime Attendance Completed Successfully"
+    )
+
+
 @attendance_bp.route('/today', methods=['GET'])
 @jwt_required
 def get_today_attendance():
@@ -335,8 +608,10 @@ def get_today_attendance():
             a.attendance_date,
             a.check_in_time,
             TIME_FORMAT(a.check_in_time, '%%h:%%i %%p') AS check_in_formatted,
+            TIME_FORMAT(a.check_in_time, '%%h:%%i:%%s %%p') AS check_in_exact,
             a.check_out_time,
             TIME_FORMAT(a.check_out_time, '%%h:%%i %%p') AS check_out_formatted,
+            TIME_FORMAT(a.check_out_time, '%%h:%%i:%%s %%p') AS check_out_exact,
             a.check_in_latitude,
             a.check_in_longitude,
             a.check_in_accuracy,
@@ -348,13 +623,29 @@ def get_today_attendance():
             a.status,
             a.total_work_minutes,
             a.overtime_minutes,
-            a.remarks
+            a.remarks,
+            a.ot_check_in_time,
+            TIME_FORMAT(a.ot_check_in_time, '%%h:%%i %%p') AS ot_check_in_formatted,
+            TIME_FORMAT(a.ot_check_in_time, '%%h:%%i:%%s %%p') AS ot_check_in_exact,
+            a.ot_check_out_time,
+            TIME_FORMAT(a.ot_check_out_time, '%%h:%%i %%p') AS ot_check_out_formatted,
+            TIME_FORMAT(a.ot_check_out_time, '%%h:%%i:%%s %%p') AS ot_check_out_exact,
+            a.ot_check_in_latitude,
+            a.ot_check_in_longitude,
+            a.ot_check_in_accuracy,
+            a.ot_check_out_latitude,
+            a.ot_check_out_longitude,
+            a.ot_check_out_accuracy,
+            a.ot_check_in_selfie,
+            a.ot_check_out_selfie,
+            a.ot_work_minutes,
+            a.ot_status
         FROM attendance a
         WHERE a.employee_id = %s AND a.attendance_date = %s
     """
     record = query_one(sql, (employee_id, today_str))
 
-    # Calculate live elapsed minutes if currently working
+    # Calculate live elapsed minutes for regular shift if currently working
     live_work_minutes = 0
     if record and record.get('check_in_time') and not record.get('check_out_time'):
         in_time = record['check_in_time']
@@ -362,13 +653,28 @@ def get_today_attendance():
             in_time = in_time.replace(tzinfo=ZoneInfo(Config.TIMEZONE))
         live_work_minutes = max(0, int((now_ist - in_time).total_seconds() // 60))
 
+    # Calculate live elapsed minutes for overtime shift if currently working
+    live_ot_work_minutes = 0
+    if record and record.get('ot_status') == 'ACTIVE' and record.get('ot_check_in_time'):
+        ot_in_time = record['ot_check_in_time']
+        if ot_in_time.tzinfo is None:
+            ot_in_time = ot_in_time.replace(tzinfo=ZoneInfo(Config.TIMEZONE))
+        live_ot_work_minutes = max(0, int((now_ist - ot_in_time).total_seconds() // 60))
+
+    if record:
+        record['duration_formatted'] = format_minutes_to_hm(record.get('total_work_minutes') or 0)
+        record['overtime_formatted'] = format_minutes_to_hm(record.get('overtime_minutes') or 0)
+        record['ot_duration_formatted'] = format_minutes_to_hm(record.get('ot_work_minutes') or 0)
+
     data = {
         'attendance': record,
         'today_date': today_str,
         'today_formatted': now_ist.strftime('%A, %B %d, %Y'),
         'current_time_formatted': now_ist.strftime('%I:%M %p'),
         'live_work_minutes': live_work_minutes,
-        'live_duration_formatted': format_minutes_to_hm(live_work_minutes)
+        'live_duration_formatted': format_minutes_to_hm(live_work_minutes),
+        'live_ot_work_minutes': live_ot_work_minutes,
+        'live_ot_duration_formatted': format_minutes_to_hm(live_ot_work_minutes)
     }
     return success_response(data=data, message="Today's attendance status retrieved.")
 
@@ -404,7 +710,21 @@ def get_my_attendance():
             a.check_in_selfie,
             a.check_out_selfie,
             a.status,
-            a.remarks
+            a.remarks,
+            a.ot_check_in_time,
+            TIME_FORMAT(a.ot_check_in_time, '%%h:%%i %%p') AS ot_check_in_formatted,
+            a.ot_check_out_time,
+            TIME_FORMAT(a.ot_check_out_time, '%%h:%%i %%p') AS ot_check_out_formatted,
+            a.ot_check_in_latitude,
+            a.ot_check_in_longitude,
+            a.ot_check_in_accuracy,
+            a.ot_check_out_latitude,
+            a.ot_check_out_longitude,
+            a.ot_check_out_accuracy,
+            a.ot_check_in_selfie,
+            a.ot_check_out_selfie,
+            a.ot_work_minutes,
+            a.ot_status
         FROM attendance a
         WHERE a.employee_id = %s AND DATE_FORMAT(a.attendance_date, '%%Y-%%m') = %s
         ORDER BY a.attendance_date DESC
@@ -421,6 +741,7 @@ def get_my_attendance():
     for r in records:
         r['duration_formatted'] = format_minutes_to_hm(r['total_work_minutes'])
         r['overtime_formatted'] = format_minutes_to_hm(r['overtime_minutes'])
+        r['ot_duration_formatted'] = format_minutes_to_hm(r.get('ot_work_minutes') or 0)
 
     summary = {
         'month': month_str,
@@ -484,7 +805,23 @@ def get_employee_monthly_attendance(emp_id):
             status,
             total_work_minutes,
             overtime_minutes,
-            remarks
+            remarks,
+            ot_check_in_time,
+            TIME_FORMAT(ot_check_in_time, '%%h:%%i:%%s %%p') AS ot_check_in_exact,
+            TIME_FORMAT(ot_check_in_time, '%%h:%%i %%p') AS ot_check_in_formatted,
+            ot_check_out_time,
+            TIME_FORMAT(ot_check_out_time, '%%h:%%i:%%s %%p') AS ot_check_out_exact,
+            TIME_FORMAT(ot_check_out_time, '%%h:%%i %%p') AS ot_check_out_formatted,
+            ot_check_in_latitude,
+            ot_check_in_longitude,
+            ot_check_in_accuracy,
+            ot_check_out_latitude,
+            ot_check_out_longitude,
+            ot_check_out_accuracy,
+            ot_check_in_selfie,
+            ot_check_out_selfie,
+            ot_work_minutes,
+            ot_status
         FROM attendance
         WHERE employee_id = %s AND DATE_FORMAT(attendance_date, '%%Y-%%m') = %s
     """
@@ -511,6 +848,7 @@ def get_employee_monthly_attendance(emp_id):
             rec_status = rec['status']
             minutes = rec['total_work_minutes'] or 0
             ot_minutes = rec['overtime_minutes'] or 0
+            ot_work = rec.get('ot_work_minutes') or 0
             total_minutes += minutes
             total_ot_minutes += ot_minutes
 
@@ -536,6 +874,13 @@ def get_employee_monthly_attendance(emp_id):
                 'duration_formatted': format_minutes_to_hm(minutes) if minutes > 0 else ('Working' if rec['check_in_time'] and not rec['check_out_time'] else '—'),
                 'overtime_minutes': ot_minutes,
                 'overtime_formatted': format_minutes_to_hm(ot_minutes) if ot_minutes > 0 else '—',
+                'ot_check_in_time': rec.get('ot_check_in_formatted') or '—',
+                'ot_check_in_exact': rec.get('ot_check_in_exact'),
+                'ot_check_out_time': rec.get('ot_check_out_formatted') or '—',
+                'ot_check_out_exact': rec.get('ot_check_out_exact'),
+                'ot_work_minutes': ot_work,
+                'ot_duration_formatted': format_minutes_to_hm(ot_work) if ot_work > 0 else ('Working' if rec.get('ot_status') == 'ACTIVE' else '—'),
+                'ot_status': rec.get('ot_status'),
                 'check_in_latitude': rec['check_in_latitude'],
                 'check_in_longitude': rec['check_in_longitude'],
                 'check_in_accuracy': rec['check_in_accuracy'],
@@ -544,6 +889,14 @@ def get_employee_monthly_attendance(emp_id):
                 'check_out_accuracy': rec['check_out_accuracy'],
                 'check_in_selfie': rec['check_in_selfie'],
                 'check_out_selfie': rec['check_out_selfie'],
+                'ot_check_in_latitude': rec.get('ot_check_in_latitude'),
+                'ot_check_in_longitude': rec.get('ot_check_in_longitude'),
+                'ot_check_in_accuracy': rec.get('ot_check_in_accuracy'),
+                'ot_check_out_latitude': rec.get('ot_check_out_latitude'),
+                'ot_check_out_longitude': rec.get('ot_check_out_longitude'),
+                'ot_check_out_accuracy': rec.get('ot_check_out_accuracy'),
+                'ot_check_in_selfie': rec.get('ot_check_in_selfie'),
+                'ot_check_out_selfie': rec.get('ot_check_out_selfie'),
                 'remarks': rec['remarks']
             })
         else:
@@ -571,6 +924,13 @@ def get_employee_monthly_attendance(emp_id):
                 'duration_formatted': '—',
                 'overtime_minutes': 0,
                 'overtime_formatted': '—',
+                'ot_check_in_time': '—',
+                'ot_check_in_exact': None,
+                'ot_check_out_time': '—',
+                'ot_check_out_exact': None,
+                'ot_work_minutes': 0,
+                'ot_duration_formatted': '—',
+                'ot_status': None,
                 'check_in_latitude': None,
                 'check_in_longitude': None,
                 'check_in_accuracy': None,
@@ -579,6 +939,14 @@ def get_employee_monthly_attendance(emp_id):
                 'check_out_accuracy': None,
                 'check_in_selfie': None,
                 'check_out_selfie': None,
+                'ot_check_in_latitude': None,
+                'ot_check_in_longitude': None,
+                'ot_check_in_accuracy': None,
+                'ot_check_out_latitude': None,
+                'ot_check_out_longitude': None,
+                'ot_check_out_accuracy': None,
+                'ot_check_in_selfie': None,
+                'ot_check_out_selfie': None,
                 'remarks': None
             })
 
@@ -618,10 +986,16 @@ def get_attendance_selfie(filename):
     user_emp_id = g.user.get('employee_id')
 
     if user_role != 'ADMIN':
-        # Check ownership of this selfie
+        # Check ownership of this selfie (supports regular and overtime selfies)
         owner_check = query_one(
-            "SELECT id FROM attendance WHERE employee_id = %s AND (check_in_selfie = %s OR check_out_selfie = %s)",
-            (user_emp_id, safe_name, safe_name)
+            """
+            SELECT id FROM attendance 
+            WHERE employee_id = %s AND (
+                check_in_selfie = %s OR check_out_selfie = %s 
+                OR ot_check_in_selfie = %s OR ot_check_out_selfie = %s
+            )
+            """,
+            (user_emp_id, safe_name, safe_name, safe_name, safe_name)
         )
         if not owner_check:
             return error_response("Access forbidden: You do not have permission to view this selfie.", 403)

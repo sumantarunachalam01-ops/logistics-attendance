@@ -14,7 +14,8 @@ import {
   RefreshCw,
   Eye,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  Moon
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -107,6 +108,23 @@ export default function AdminDashboard() {
             fontWeight: 700
           }}>
             🟡 Leave
+          </span>
+        );
+      case 'OVERTIME_WORKING':
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: 'rgba(168, 85, 247, 0.2)',
+            color: '#c084fc',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            padding: '3px 10px',
+            borderRadius: '9999px',
+            fontSize: '0.8rem',
+            fontWeight: 700
+          }}>
+            <Moon size={12} /> OT Working
           </span>
         );
       default:
@@ -424,12 +442,22 @@ export default function AdminDashboard() {
 
                     {/* Check In */}
                     <td style={{ padding: '16px 20px', color: '#f1f5f9', fontFamily: 'monospace', fontWeight: 600 }}>
-                      {row.check_in_formatted}
+                      <div>{row.check_in_formatted}</div>
+                      {row.ot_check_in_formatted && row.ot_check_in_formatted !== '—' && (
+                        <div style={{ fontSize: '0.73rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+                          <Moon size={10} /> OT: {row.ot_check_in_formatted}
+                        </div>
+                      )}
                     </td>
 
                     {/* Check Out */}
                     <td style={{ padding: '16px 20px', color: '#f1f5f9', fontFamily: 'monospace', fontWeight: 600 }}>
-                      {row.check_out_formatted}
+                      <div>{row.check_out_formatted}</div>
+                      {row.ot_check_out_formatted && row.ot_check_out_formatted !== '—' && (
+                        <div style={{ fontSize: '0.73rem', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+                          <Moon size={10} /> OT: {row.ot_check_out_formatted}
+                        </div>
+                      )}
                     </td>
 
                     {/* Hours */}
@@ -437,7 +465,7 @@ export default function AdminDashboard() {
                       <span style={{
                         fontFamily: 'monospace',
                         fontWeight: 700,
-                        color: row.status === 'WORKING' ? '#34d399' : row.status === 'COMPLETED' ? '#38bdf8' : '#94a3b8'
+                        color: row.status === 'WORKING' ? '#34d399' : row.status === 'OVERTIME_WORKING' ? '#c084fc' : row.status === 'COMPLETED' ? '#38bdf8' : '#94a3b8'
                       }}>
                         {row.hours_formatted}
                       </span>
@@ -445,7 +473,7 @@ export default function AdminDashboard() {
 
                     {/* Location Pin Trigger */}
                     <td style={{ padding: '16px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
                         {row.check_in_latitude && (
                           <button
                             onClick={() => setMapModal({
@@ -461,17 +489,17 @@ export default function AdminDashboard() {
                               background: 'rgba(56, 189, 248, 0.12)',
                               border: '1px solid rgba(56, 189, 248, 0.3)',
                               color: '#38bdf8',
-                              padding: '5px 8px',
-                              borderRadius: '8px',
-                              fontSize: '0.78rem',
+                              padding: '4px 7px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
                               fontWeight: 600,
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '4px',
+                              gap: '3px',
                               cursor: 'pointer'
                             }}
                           >
-                            <MapPin size={13} /> In
+                            <MapPin size={12} /> In
                           </button>
                         )}
                         {row.check_out_latitude && (
@@ -489,20 +517,76 @@ export default function AdminDashboard() {
                               background: 'rgba(168, 85, 247, 0.12)',
                               border: '1px solid rgba(168, 85, 247, 0.3)',
                               color: '#c084fc',
-                              padding: '5px 8px',
-                              borderRadius: '8px',
-                              fontSize: '0.78rem',
+                              padding: '4px 7px',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
                               fontWeight: 600,
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '4px',
+                              gap: '3px',
                               cursor: 'pointer'
                             }}
                           >
-                            <MapPin size={13} /> Out
+                            <MapPin size={12} /> Out
                           </button>
                         )}
-                        {!row.check_in_latitude && !row.check_out_latitude && (
+                        {row.ot_check_in_latitude && (
+                          <button
+                            onClick={() => setMapModal({
+                              open: true,
+                              lat: row.ot_check_in_latitude,
+                              lng: row.ot_check_in_longitude,
+                              acc: row.ot_check_in_accuracy,
+                              title: `${row.full_name} — OT Check-In Location`,
+                              time: row.ot_check_in_formatted
+                            })}
+                            title="View Overtime Check-In Coordinates"
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.18)',
+                              border: '1px solid rgba(168, 85, 247, 0.35)',
+                              color: '#d8b4fe',
+                              padding: '4px 7px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Moon size={10} /> OT In
+                          </button>
+                        )}
+                        {row.ot_check_out_latitude && (
+                          <button
+                            onClick={() => setMapModal({
+                              open: true,
+                              lat: row.ot_check_out_latitude,
+                              lng: row.ot_check_out_longitude,
+                              acc: row.ot_check_out_accuracy,
+                              title: `${row.full_name} — OT Check-Out Location`,
+                              time: row.ot_check_out_formatted
+                            })}
+                            title="View Overtime Check-Out Coordinates"
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.18)',
+                              border: '1px solid rgba(168, 85, 247, 0.35)',
+                              color: '#d8b4fe',
+                              padding: '4px 7px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Moon size={10} /> OT Out
+                          </button>
+                        )}
+                        {!row.check_in_latitude && !row.check_out_latitude && !row.ot_check_in_latitude && !row.ot_check_out_latitude && (
                           <span style={{ color: '#64748b' }}>—</span>
                         )}
                       </div>
@@ -510,7 +594,7 @@ export default function AdminDashboard() {
 
                     {/* Selfie Trigger */}
                     <td style={{ padding: '16px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ display: 'inline-flex', gap: '4px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
                         {row.check_in_selfie && (
                           <button
                             onClick={() => setSelfieModal({
@@ -525,17 +609,17 @@ export default function AdminDashboard() {
                               background: 'rgba(16, 185, 129, 0.12)',
                               border: '1px solid rgba(16, 185, 129, 0.3)',
                               color: '#34d399',
-                              padding: '5px 8px',
-                              borderRadius: '8px',
-                              fontSize: '0.78rem',
+                              padding: '4px 6px',
+                              borderRadius: '6px',
+                              fontSize: '0.74rem',
                               fontWeight: 600,
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '4px',
+                              gap: '3px',
                               cursor: 'pointer'
                             }}
                           >
-                            <Camera size={13} /> In
+                            <Camera size={11} /> In
                           </button>
                         )}
                         {row.check_out_selfie && (
@@ -552,20 +636,68 @@ export default function AdminDashboard() {
                               background: 'rgba(168, 85, 247, 0.12)',
                               border: '1px solid rgba(168, 85, 247, 0.3)',
                               color: '#c084fc',
-                              padding: '5px 8px',
-                              borderRadius: '8px',
-                              fontSize: '0.78rem',
+                              padding: '4px 6px',
+                              borderRadius: '6px',
+                              fontSize: '0.74rem',
                               fontWeight: 600,
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '4px',
+                              gap: '3px',
                               cursor: 'pointer'
                             }}
                           >
-                            <Camera size={13} /> Out
+                            <Camera size={11} /> Out
                           </button>
                         )}
-                        {!row.check_in_selfie && !row.check_out_selfie && (
+                        {row.ot_check_in_selfie && (
+                          <button
+                            onClick={() => setSelfieModal({
+                              open: true,
+                              filename: row.ot_check_in_selfie,
+                              title: `${row.full_name} — OT Check-In Selfie`,
+                              time: row.ot_check_in_formatted,
+                              employeeName: row.full_name
+                            })}
+                            title="View Overtime Check-In Selfie"
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.18)',
+                              border: '1px solid rgba(168, 85, 247, 0.35)',
+                              color: '#d8b4fe',
+                              padding: '3px 6px',
+                              borderRadius: '6px',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🌙 OT In
+                          </button>
+                        )}
+                        {row.ot_check_out_selfie && (
+                          <button
+                            onClick={() => setSelfieModal({
+                              open: true,
+                              filename: row.ot_check_out_selfie,
+                              title: `${row.full_name} — OT Check-Out Selfie`,
+                              time: row.ot_check_out_formatted,
+                              employeeName: row.full_name
+                            })}
+                            title="View Overtime Check-Out Selfie"
+                            style={{
+                              background: 'rgba(168, 85, 247, 0.18)',
+                              border: '1px solid rgba(168, 85, 247, 0.35)',
+                              color: '#d8b4fe',
+                              padding: '3px 6px',
+                              borderRadius: '6px',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🌙 OT Out
+                          </button>
+                        )}
+                        {!row.check_in_selfie && !row.check_out_selfie && !row.ot_check_in_selfie && !row.ot_check_out_selfie && (
                           <span style={{ color: '#64748b' }}>—</span>
                         )}
                       </div>

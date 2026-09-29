@@ -22,7 +22,10 @@ def list_employees():
             u.role, u.is_active AS user_active,
             COALESCE(a.status, 'NOT_STARTED') AS today_status,
             TIME_FORMAT(a.check_in_time, '%%h:%%i %%p') AS today_check_in,
-            TIME_FORMAT(a.check_out_time, '%%h:%%i %%p') AS today_check_out
+            TIME_FORMAT(a.check_out_time, '%%h:%%i %%p') AS today_check_out,
+            TIME_FORMAT(a.ot_check_in_time, '%%h:%%i %%p') AS today_ot_check_in,
+            TIME_FORMAT(a.ot_check_out_time, '%%h:%%i %%p') AS today_ot_check_out,
+            a.ot_status AS today_ot_status
         FROM employees e
         JOIN users u ON e.user_id = u.id
         LEFT JOIN attendance a ON e.id = a.employee_id AND a.attendance_date = CURDATE()

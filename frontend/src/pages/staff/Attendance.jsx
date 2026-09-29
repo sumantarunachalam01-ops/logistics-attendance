@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  Moon
 } from 'lucide-react';
 
 export default function StaffAttendance() {
@@ -391,6 +392,138 @@ export default function StaffAttendance() {
                         <Camera size={13} /> Out Selfie
                       </button>
                     )}
+                  </div>
+                )}
+
+                {/* Overtime / Night Shift Session */}
+                {(rec.ot_check_in_time || rec.ot_work_minutes > 0 || rec.ot_status === 'ACTIVE') && (
+                  <div style={{
+                    marginTop: '4px',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    background: 'rgba(168, 85, 247, 0.08)',
+                    border: '1px solid rgba(168, 85, 247, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc', fontSize: '0.85rem', fontWeight: 600 }}>
+                        <Moon size={14} />
+                        <span>OT: {rec.ot_check_in_formatted} → {rec.ot_check_out_formatted || (rec.ot_status === 'ACTIVE' ? 'Working OT' : '—')}</span>
+                      </div>
+                      <div style={{ fontWeight: 700, color: '#e879f9', fontFamily: 'monospace', fontSize: '0.88rem' }}>
+                        {rec.ot_duration_formatted || (rec.ot_work_minutes ? `${rec.ot_work_minutes}m` : 'Active')}
+                      </div>
+                    </div>
+
+                    {/* OT Location & Selfie Verification Buttons */}
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {rec.ot_check_in_latitude && (
+                        <button
+                          onClick={() => setMapModal({
+                            open: true,
+                            lat: rec.ot_check_in_latitude,
+                            lng: rec.ot_check_in_longitude,
+                            acc: rec.ot_check_in_accuracy,
+                            title: `OT Check-In Location - ${rec.date_short}`,
+                            time: rec.ot_check_in_formatted
+                          })}
+                          style={{
+                            background: 'rgba(56, 189, 248, 0.1)',
+                            border: '1px solid rgba(56, 189, 248, 0.25)',
+                            color: '#38bdf8',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <MapPin size={11} /> OT In Map
+                        </button>
+                      )}
+                      {rec.ot_check_out_latitude && (
+                        <button
+                          onClick={() => setMapModal({
+                            open: true,
+                            lat: rec.ot_check_out_latitude,
+                            lng: rec.ot_check_out_longitude,
+                            acc: rec.ot_check_out_accuracy,
+                            title: `OT Check-Out Location - ${rec.date_short}`,
+                            time: rec.ot_check_out_formatted
+                          })}
+                          style={{
+                            background: 'rgba(168, 85, 247, 0.1)',
+                            border: '1px solid rgba(168, 85, 247, 0.25)',
+                            color: '#c084fc',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <MapPin size={11} /> OT Out Map
+                        </button>
+                      )}
+                      {rec.ot_check_in_selfie && (
+                        <button
+                          onClick={() => setSelfieModal({
+                            open: true,
+                            filename: rec.ot_check_in_selfie,
+                            title: `OT Check-In Selfie - ${rec.date_short}`,
+                            time: rec.ot_check_in_formatted
+                          })}
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                            color: '#34d399',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Camera size={11} /> OT In Selfie
+                        </button>
+                      )}
+                      {rec.ot_check_out_selfie && (
+                        <button
+                          onClick={() => setSelfieModal({
+                            open: true,
+                            filename: rec.ot_check_out_selfie,
+                            title: `OT Check-Out Selfie - ${rec.date_short}`,
+                            time: rec.ot_check_out_formatted
+                          })}
+                          style={{
+                            background: 'rgba(168, 85, 247, 0.1)',
+                            border: '1px solid rgba(168, 85, 247, 0.25)',
+                            color: '#c084fc',
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.74rem',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Camera size={11} /> OT Out Selfie
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

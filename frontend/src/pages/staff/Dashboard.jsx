@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Loader2,
   Eye,
-  ShieldCheck
+  ShieldCheck,
+  Moon,
+  PlusCircle
 } from 'lucide-react';
 
 export default function StaffDashboard() {
@@ -32,17 +34,18 @@ export default function StaffDashboard() {
 
   // Live timer for currently working
   const [liveWorkMinutes, setLiveWorkMinutes] = useState(0);
+  const [liveOtMinutes, setLiveOtMinutes] = useState(0);
 
   // Modals
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null); // 'START' | 'END'
+  const [pendingAction, setPendingAction] = useState(null); // 'START' | 'END' | 'OVERTIME_START' | 'OVERTIME_END'
   const [pendingLocation, setPendingLocation] = useState(null);
 
   const [mapModal, setMapModal] = useState({ open: false, lat: null, lng: null, acc: null, title: '', time: '' });
   const [selfieModal, setSelfieModal] = useState({ open: false, filename: null, title: '', time: '' });
 
   // Confirmation screen state
-  const [confirmation, setConfirmation] = useState(null); // { type: 'START' | 'END', ... }
+  const [confirmation, setConfirmation] = useState(null); // { type: 'START' | 'END' | 'OVERTIME_START' | 'OVERTIME_END', ... }
 
   // Update live clock
   useEffect(() => {
@@ -76,6 +79,7 @@ export default function StaffDashboard() {
       if (res.success && res.data) {
         setTodayData(res.data.attendance);
         setLiveWorkMinutes(res.data.live_work_minutes || 0);
+        setLiveOtMinutes(res.data.live_ot_work_minutes || 0);
       }
     } catch (err) {
       console.error("Failed to fetch today's attendance:", err);
@@ -89,12 +93,23 @@ export default function StaffDashboard() {
     fetchTodayAttendance();
   }, []);
 
-  // Live elapsed counter if currently working
+  // Live elapsed counter if currently working regular shift
   useEffect(() => {
     if (!todayData?.check_in_time || todayData?.check_out_time) return;
 
     const interval = setInterval(() => {
       setLiveWorkMinutes(prev => prev + 1);
+    }, 60000); // every minute
+
+    return () => clearInterval(interval);
+  }, [todayData]);
+
+  // Live elapsed counter if currently working overtime
+  useEffect(() => {
+    if (todayData?.ot_status !== 'ACTIVE' || !todayData?.ot_check_in_time) return;
+
+    const interval = setInterval(() => {
+      setLiveOtMinutes(prev => prev + 1);
     }, 60000); // every minute
 
     return () => clearInterval(interval);
@@ -166,7 +181,16 @@ export default function StaffDashboard() {
     setActionLoading(true);
     setErrorMsg(null);
 
-    const endpoint = pendingAction === 'START' ? '/attendance/start' : '/attendance/end';
+    let endpoint = '/attendance/start';
+    if (pendingAction === 'START') {
+      endpoint = '/attendance/start';
+    } else if (pendingAction === 'END') {
+      endpoint = '/attendance/end';
+    } else if (pendingAction === 'OVERTIME_START') {
+      endpoint = '/attendance/overtime/start';
+    } else if (pendingAction === 'OVERTIME_END') {
+      endpoint = '/attendance/overtime/end';
+    }
 
     try {
       const payload = {
@@ -192,7 +216,7 @@ export default function StaffDashboard() {
             selfie: res.data.selfie_filename,
             message: "You are now marked as PRESENT."
           });
-        } else {
+        } else if (pendingAction === 'END') {
           setConfirmation({
             type: 'END',
             checkIn: res.data.check_in_formatted,
@@ -203,7 +227,30 @@ export default function StaffDashboard() {
             lng: res.data.longitude || pendingLocation.longitude,
             acc: res.data.accuracy || pendingLocation.accuracy,
             selfie: res.data.selfie_filename,
-            message: `Today's working time: ${res.data.duration_formatted}`
+            message: `Regular shift completed: ${res.data.duration_formatted}`
+          });
+        } else if (pendingAction === 'OVERTIME_START') {
+          setConfirmation({
+            type: 'OVERTIME_START',
+            time: res.data.ot_check_in_formatted,
+            lat: res.data.latitude,
+            lng: res.data.longitude,
+            acc: res.data.accuracy,
+            selfie: res.data.selfie_filename,
+            message: "Overtime attendance started successfully."
+          });
+        } else if (pendingAction === 'OVERTIME_END') {
+          setConfirmation({
+            type: 'OVERTIME_END',
+            checkIn: res.data.ot_check_in_formatted,
+            checkOut: res.data.ot_check_out_formatted,
+            duration: res.data.ot_duration_formatted,
+            totalDayWork: res.data.total_day_work_formatted,
+            lat: res.data.latitude || pendingLocation.latitude,
+            lng: res.data.longitude || pendingLocation.longitude,
+            acc: res.data.accuracy || pendingLocation.accuracy,
+            selfie: res.data.selfie_filename,
+            message: `Overtime completed: ${res.data.ot_duration_formatted} (Total Day Work: ${res.data.total_day_work_formatted})`
           });
         }
         // Refresh today data
@@ -222,6 +269,9 @@ export default function StaffDashboard() {
   const isWorking = todayData?.check_in_time && !todayData?.check_out_time;
   const isCompleted = todayData?.check_in_time && todayData?.check_out_time;
   const isNotStarted = !todayData?.check_in_time;
+  const isOtWorking = todayData?.ot_status === 'ACTIVE';
+  const isOtCompleted = todayData?.ot_status === 'COMPLETED';
+
 
   return (
     <div style={{
@@ -295,10 +345,13 @@ export default function StaffDashboard() {
           boxShadow: '0 8px 24px rgba(16, 185, 129, 0.2)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CheckCircle2 size={24} style={{ color: '#34d399' }} />
+            <CheckCircle2 size={24} style={{ color: confirmation.type?.startsWith('OVERTIME') ? '#c084fc' : '#34d399' }} />
             <div>
               <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc' }}>
-                {confirmation.type === 'START' ? 'Attendance Started Successfully' : 'Attendance Completed Successfully'}
+                {confirmation.type === 'START' ? 'Attendance Started Successfully' :
+                 confirmation.type === 'OVERTIME_START' ? 'Overtime Started Successfully' :
+                 confirmation.type === 'OVERTIME_END' ? 'Overtime Completed Successfully' :
+                 'Attendance Completed Successfully'}
               </div>
               <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Official server timestamp recorded in IST</div>
             </div>
@@ -327,6 +380,73 @@ export default function StaffDashboard() {
               <div style={{ marginTop: '6px', color: '#34d399', fontWeight: 600, fontSize: '0.88rem' }}>
                 ✓ {confirmation.message}
               </div>
+            </div>
+          ) : confirmation.type === 'OVERTIME_START' ? (
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.25)',
+              borderRadius: '12px',
+              padding: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              fontSize: '0.92rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f1f5f9', fontWeight: 600 }}>
+                <span>Overtime Start Time:</span>
+                <span style={{ color: '#c084fc' }}>{confirmation.time}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.85rem' }}>
+                <MapPin size={15} /> <span>OT Location Captured (±{confirmation.acc}m)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc', fontSize: '0.85rem' }}>
+                <Camera size={15} /> <span>OT Selfie Captured & Verified</span>
+              </div>
+              <div style={{ marginTop: '6px', color: '#c084fc', fontWeight: 600, fontSize: '0.88rem' }}>
+                ✓ {confirmation.message}
+              </div>
+            </div>
+          ) : confirmation.type === 'OVERTIME_END' ? (
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.25)',
+              borderRadius: '12px',
+              padding: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              fontSize: '0.92rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                <span>OT Check In:</span>
+                <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{confirmation.checkIn}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                <span>OT Check Out:</span>
+                <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{confirmation.checkOut}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc', fontSize: '0.85rem' }}>
+                <MapPin size={15} /> <span>OT Out Location Captured (±{confirmation.acc || 15}m)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c084fc', fontSize: '0.85rem' }}>
+                <Camera size={15} /> <span>OT Out Selfie Captured & Verified</span>
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                color: '#c084fc',
+                fontWeight: 700,
+                fontSize: '1rem',
+                paddingTop: '6px',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+              }}>
+                <span>OT Duration:</span>
+                <span>{confirmation.duration}</span>
+              </div>
+              {confirmation.totalDayWork && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#38bdf8', fontWeight: 700, fontSize: '0.95rem' }}>
+                  <span>Total Day Work:</span>
+                  <span>{confirmation.totalDayWork}</span>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{
@@ -386,7 +506,22 @@ export default function StaffDashboard() {
               Today's Attendance
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-              {isWorking ? (
+              {isOtWorking ? (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(168, 85, 247, 0.2)',
+                  border: '1px solid rgba(168, 85, 247, 0.4)',
+                  color: '#c084fc',
+                  padding: '4px 12px',
+                  borderRadius: '9999px',
+                  fontWeight: 700,
+                  fontSize: '0.88rem'
+                }}>
+                  🟣 OVERTIME ACTIVE
+                </span>
+              ) : isWorking ? (
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -406,15 +541,15 @@ export default function StaffDashboard() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  background: 'rgba(59, 130, 246, 0.15)',
-                  border: '1px solid rgba(59, 130, 246, 0.3)',
-                  color: '#60a5fa',
+                  background: isOtCompleted ? 'rgba(168, 85, 247, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                  border: `1px solid ${isOtCompleted ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+                  color: isOtCompleted ? '#c084fc' : '#60a5fa',
                   padding: '4px 12px',
                   borderRadius: '9999px',
                   fontWeight: 700,
                   fontSize: '0.88rem'
                 }}>
-                  🔵 COMPLETED
+                  {isOtCompleted ? '🔵 SHIFT & OT COMPLETED' : '🔵 COMPLETED'}
                 </span>
               ) : (
                 <span style={{
@@ -439,18 +574,18 @@ export default function StaffDashboard() {
             width: '44px',
             height: '44px',
             borderRadius: '12px',
-            background: isWorking ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.15)',
+            background: isOtWorking ? 'rgba(168, 85, 247, 0.15)' : isWorking ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.15)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: isWorking ? '#34d399' : '#38bdf8'
+            color: isOtWorking ? '#c084fc' : isWorking ? '#34d399' : '#38bdf8'
           }}>
-            <Clock size={24} />
+            {isOtWorking ? <Moon size={24} /> : <Clock size={24} />}
           </div>
         </div>
 
-        {/* STATE 1: NOT STARTED */}
-        {isNotStarted && (
+        {/* STATE 1: NOT STARTED (Neither regular shift nor overtime is active) */}
+        {isNotStarted && !isOtWorking && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <p style={{ margin: 0, fontSize: '0.9rem', color: '#94a3b8', lineHeight: 1.5 }}>
               Ready to begin your work day? Press below to verify your GPS location and live camera selfie.
@@ -490,6 +625,31 @@ export default function StaffDashboard() {
                   <span>START ATTENDANCE</span>
                 </>
               )}
+            </button>
+
+            {/* Direct Overtime Start Option */}
+            <button
+              onClick={() => initiateAttendanceFlow('OVERTIME_START')}
+              disabled={actionLoading}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '12px',
+                background: 'rgba(139, 92, 246, 0.1)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                color: '#c084fc',
+                fontSize: '0.88rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: actionLoading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Moon size={16} />
+              <span>Add Overtime / Night Duty Directly</span>
             </button>
           </div>
         )}
@@ -805,7 +965,574 @@ export default function StaffDashboard() {
               gap: '8px',
               justifyContent: 'center'
             }}>
-              <ShieldCheck size={16} /> Attendance marked and closed for today.
+              <ShieldCheck size={16} /> Regular shift completed for today.
+            </div>
+
+            {/* OVERTIME / NIGHT SHIFT SECTION FOR COMPLETED REGULAR SHIFT */}
+            {isOtWorking ? (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.3) 0%, rgba(30, 27, 75, 0.4) 100%)',
+                border: '1px solid rgba(168, 85, 247, 0.4)',
+                borderRadius: '16px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px',
+                boxShadow: '0 8px 24px rgba(147, 51, 234, 0.2)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Moon size={20} style={{ color: '#c084fc' }} />
+                    <span style={{ fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>Overtime / Night Duty Active</span>
+                  </div>
+                  <span style={{
+                    background: 'rgba(168, 85, 247, 0.2)',
+                    border: '1px solid rgba(168, 85, 247, 0.4)',
+                    color: '#c084fc',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '9999px'
+                  }}>
+                    IN PROGRESS
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Overtime Started:</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f1f5f9' }}>{todayData.ot_check_in_formatted}</span>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(168, 85, 247, 0.2)'
+                }}>
+                  <span style={{ fontSize: '0.88rem', color: '#c084fc', fontWeight: 600 }}>Overtime Worked So Far:</span>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#e879f9', fontFamily: 'monospace' }}>
+                    {formatHm(liveOtMinutes)}
+                  </span>
+                </div>
+
+                {/* OT Check In Map / Selfie Verification */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {todayData.ot_check_in_latitude && (
+                    <button
+                      onClick={() => setMapModal({
+                        open: true,
+                        lat: todayData.ot_check_in_latitude,
+                        lng: todayData.ot_check_in_longitude,
+                        acc: todayData.ot_check_in_accuracy,
+                        title: 'Overtime Check-In Location',
+                        time: todayData.ot_check_in_formatted
+                      })}
+                      style={{
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '100px',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        color: '#38bdf8',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <MapPin size={13} /> OT In Map
+                    </button>
+                  )}
+                  {todayData.ot_check_in_selfie && (
+                    <button
+                      onClick={() => setSelfieModal({
+                        open: true,
+                        filename: todayData.ot_check_in_selfie,
+                        title: 'Overtime Check-In Selfie',
+                        time: todayData.ot_check_in_formatted
+                      })}
+                      style={{
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '100px',
+                        background: 'rgba(168, 85, 247, 0.15)',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        color: '#c084fc',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Camera size={13} /> OT In Selfie
+                    </button>
+                  )}
+                </div>
+
+                {/* End Overtime Button */}
+                <button
+                  onClick={() => initiateAttendanceFlow('OVERTIME_END')}
+                  disabled={actionLoading}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.02em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 6px 20px rgba(168, 85, 247, 0.4)',
+                    transition: 'all 0.2s ease',
+                    marginTop: '4px'
+                  }}
+                >
+                  {actionLoading ? (
+                    <>
+                      <Loader2 size={22} className="animate-spin" />
+                      <span>Requesting GPS & Camera...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Square size={20} fill="#ffffff" />
+                      <span>END OVERTIME ATTENDANCE</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : isOtCompleted ? (
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                borderRadius: '16px',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Moon size={18} style={{ color: '#c084fc' }} />
+                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f1f5f9' }}>Overtime / Night Duty</span>
+                  </div>
+                  <span style={{
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    color: '#34d399',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '9999px'
+                  }}>
+                    COMPLETED
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>OT Check In:</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f1f5f9' }}>{todayData.ot_check_in_formatted}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>OT Check Out:</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f1f5f9' }}>{todayData.ot_check_out_formatted}</span>
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingTop: '8px',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  <span style={{ fontSize: '0.9rem', color: '#c084fc', fontWeight: 600 }}>Overtime Worked:</span>
+                  <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#e879f9', fontFamily: 'monospace' }}>
+                    {formatHm(todayData.ot_work_minutes)}
+                  </span>
+                </div>
+
+                {/* Overtime Verifications */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingTop: '6px' }}>
+                  {todayData.ot_check_in_latitude && (
+                    <button
+                      onClick={() => setMapModal({
+                        open: true,
+                        lat: todayData.ot_check_in_latitude,
+                        lng: todayData.ot_check_in_longitude,
+                        acc: todayData.ot_check_in_accuracy,
+                        title: 'Overtime Check-In Location',
+                        time: todayData.ot_check_in_formatted
+                      })}
+                      style={{
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '100px',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        color: '#38bdf8',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <MapPin size={13} /> OT In Map
+                    </button>
+                  )}
+                  {todayData.ot_check_out_latitude && (
+                    <button
+                      onClick={() => setMapModal({
+                        open: true,
+                        lat: todayData.ot_check_out_latitude,
+                        lng: todayData.ot_check_out_longitude,
+                        acc: todayData.ot_check_out_accuracy,
+                        title: 'Overtime Check-Out Location',
+                        time: todayData.ot_check_out_formatted
+                      })}
+                      style={{
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '100px',
+                        background: 'rgba(168, 85, 247, 0.1)',
+                        border: '1px solid rgba(168, 85, 247, 0.25)',
+                        color: '#c084fc',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <MapPin size={13} /> OT Out Map
+                    </button>
+                  )}
+                  {todayData.ot_check_in_selfie && (
+                    <button
+                      onClick={() => setSelfieModal({
+                        open: true,
+                        filename: todayData.ot_check_in_selfie,
+                        title: 'Overtime Check-In Selfie',
+                        time: todayData.ot_check_in_formatted
+                      })}
+                      style={{
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '100px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid rgba(16, 185, 129, 0.25)',
+                        color: '#34d399',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Camera size={13} /> OT In Selfie
+                    </button>
+                  )}
+                  {todayData.ot_check_out_selfie && (
+                    <button
+                      onClick={() => setSelfieModal({
+                        open: true,
+                        filename: todayData.ot_check_out_selfie,
+                        title: 'Overtime Check-Out Selfie',
+                        time: todayData.ot_check_out_formatted
+                      })}
+                      style={{
+                        flex: '1 1 calc(50% - 4px)',
+                        minWidth: '100px',
+                        background: 'rgba(168, 85, 247, 0.1)',
+                        border: '1px solid rgba(168, 85, 247, 0.25)',
+                        color: '#c084fc',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <Camera size={13} /> OT Out Selfie
+                    </button>
+                  )}
+                </div>
+
+                {/* Add Another Overtime Session */}
+                <button
+                  onClick={() => initiateAttendanceFlow('OVERTIME_START')}
+                  disabled={actionLoading}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    background: 'rgba(168, 85, 247, 0.12)',
+                    border: '1px solid rgba(168, 85, 247, 0.35)',
+                    color: '#d8b4fe',
+                    fontSize: '0.9rem',
+                    fontWeight: 700,
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginTop: '4px'
+                  }}
+                >
+                  <PlusCircle size={16} />
+                  <span>+ Add Another Overtime Session</span>
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.2) 0%, rgba(30, 27, 75, 0.25) 100%)',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                borderRadius: '16px',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: 'rgba(168, 85, 247, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#c084fc'
+                  }}>
+                    <Moon size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f1f5f9' }}>
+                      Add Overtime / Night Duty
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                      Returning for night work? Press below to start your overtime session.
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => initiateAttendanceFlow('OVERTIME_START')}
+                  disabled={actionLoading}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #9333ea 0%, #6b21a8 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.02em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 6px 20px rgba(147, 51, 234, 0.35)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {actionLoading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      <span>Requesting GPS & Camera...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle size={20} />
+                      <span>ADD OVERTIME</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STATE 4: DIRECT OVERTIME ONLY (when regular shift wasn't marked today) */}
+        {!isCompleted && !isWorking && isOtWorking && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.3) 0%, rgba(30, 27, 75, 0.4) 100%)',
+              border: '1px solid rgba(168, 85, 247, 0.4)',
+              borderRadius: '16px',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              boxShadow: '0 8px 24px rgba(147, 51, 234, 0.2)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Moon size={20} style={{ color: '#c084fc' }} />
+                  <span style={{ fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>Overtime / Night Duty Active</span>
+                </div>
+                <span style={{
+                  background: 'rgba(168, 85, 247, 0.2)',
+                  border: '1px solid rgba(168, 85, 247, 0.4)',
+                  color: '#c084fc',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '9999px'
+                }}>
+                  IN PROGRESS
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Overtime Started:</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#f1f5f9' }}>{todayData?.ot_check_in_formatted}</span>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'rgba(0, 0, 0, 0.3)',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(168, 85, 247, 0.2)'
+              }}>
+                <span style={{ fontSize: '0.88rem', color: '#c084fc', fontWeight: 600 }}>Overtime Worked So Far:</span>
+                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#e879f9', fontFamily: 'monospace' }}>
+                  {formatHm(liveOtMinutes)}
+                </span>
+              </div>
+
+              {/* OT Check In Map / Selfie Verification */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {todayData?.ot_check_in_latitude && (
+                  <button
+                    onClick={() => setMapModal({
+                      open: true,
+                      lat: todayData.ot_check_in_latitude,
+                      lng: todayData.ot_check_in_longitude,
+                      acc: todayData.ot_check_in_accuracy,
+                      title: 'Overtime Check-In Location',
+                      time: todayData.ot_check_in_formatted
+                    })}
+                    style={{
+                      flex: '1 1 calc(50% - 4px)',
+                      minWidth: '100px',
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: '#38bdf8',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <MapPin size={13} /> OT In Map
+                  </button>
+                )}
+                {todayData?.ot_check_in_selfie && (
+                  <button
+                    onClick={() => setSelfieModal({
+                      open: true,
+                      filename: todayData.ot_check_in_selfie,
+                      title: 'Overtime Check-In Selfie',
+                      time: todayData.ot_check_in_formatted
+                    })}
+                    style={{
+                      flex: '1 1 calc(50% - 4px)',
+                      minWidth: '100px',
+                      background: 'rgba(168, 85, 247, 0.15)',
+                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                      color: '#c084fc',
+                      padding: '8px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Camera size={13} /> OT In Selfie
+                  </button>
+                )}
+              </div>
+
+              {/* End Overtime Button */}
+              <button
+                onClick={() => initiateAttendanceFlow('OVERTIME_END')}
+                disabled={actionLoading}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '1.05rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.02em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 6px 20px rgba(168, 85, 247, 0.4)',
+                  transition: 'all 0.2s ease',
+                  marginTop: '4px'
+                }}
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 size={22} className="animate-spin" />
+                    <span>Requesting GPS & Camera...</span>
+                  </>
+                ) : (
+                  <>
+                    <Square size={20} fill="#ffffff" />
+                    <span>END OVERTIME ATTENDANCE</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}
@@ -816,7 +1543,12 @@ export default function StaffDashboard() {
         isOpen={cameraOpen}
         onClose={() => { setCameraOpen(false); setPendingAction(null); setPendingLocation(null); }}
         onCapture={handleSelfieCaptured}
-        title={pendingAction === 'START' ? 'Check-In Selfie Verification' : 'Check-Out Selfie Verification'}
+        title={
+          pendingAction === 'START' ? 'Check-In Selfie Verification' :
+          pendingAction === 'END' ? 'Check-Out Selfie Verification' :
+          pendingAction === 'OVERTIME_START' ? 'Overtime Check-In Selfie Verification' :
+          'Overtime Check-Out Selfie Verification'
+        }
       />
 
       {/* Map Location Modal */}

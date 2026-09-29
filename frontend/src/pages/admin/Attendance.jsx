@@ -15,7 +15,8 @@ import {
   X,
   Eye,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Moon
 } from 'lucide-react';
 
 export default function AdminAttendance() {
@@ -135,6 +136,20 @@ export default function AdminAttendance() {
             fontWeight: 700
           }}>
             LEAVE
+          </span>
+        );
+      case 'OVERTIME_WORKING':
+        return (
+          <span style={{
+            background: 'rgba(168, 85, 247, 0.2)',
+            color: '#c084fc',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            padding: '2px 8px',
+            borderRadius: '9999px',
+            fontSize: '0.78rem',
+            fontWeight: 700
+          }}>
+            OT WORKING
           </span>
         );
       case 'WEEK_OFF':
@@ -430,137 +445,270 @@ export default function AdminAttendance() {
 
                       {/* In Time */}
                       <td style={{ padding: '14px 20px', color: '#f1f5f9', fontFamily: 'monospace' }}>
-                        {day.check_in_time}
+                        <div>{day.check_in_time}</div>
+                        {day.ot_check_in_time && day.ot_check_in_time !== '—' && (
+                          <div style={{ fontSize: '0.73rem', color: '#c084fc', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <Moon size={11} /> OT: {day.ot_check_in_time}
+                          </div>
+                        )}
                       </td>
 
                       {/* Out Time */}
                       <td style={{ padding: '14px 20px', color: '#f1f5f9', fontFamily: 'monospace' }}>
-                        {day.check_out_time}
+                        <div>{day.check_out_time}</div>
+                        {day.ot_check_out_time && day.ot_check_out_time !== '—' && (
+                          <div style={{ fontSize: '0.73rem', color: '#c084fc', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <Moon size={11} /> OT: {day.ot_check_out_time}
+                          </div>
+                        )}
                       </td>
 
                       {/* Hours */}
                       <td style={{ padding: '14px 20px', fontFamily: 'monospace', fontWeight: 600, color: isPresent ? '#38bdf8' : '#94a3b8' }}>
-                        {day.duration_formatted}
+                        <div>{day.duration_formatted}</div>
+                        {day.ot_work_minutes > 0 && (
+                          <div style={{ fontSize: '0.73rem', color: '#fbbf24', marginTop: '3px' }}>
+                            +OT: {day.ot_duration_formatted}
+                          </div>
+                        )}
                       </td>
 
                       {/* In Location */}
                       <td style={{ padding: '14px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                        {day.check_in_latitude ? (
-                          <button
-                            onClick={() => setMapModal({
-                              open: true,
-                              lat: day.check_in_latitude,
-                              lng: day.check_in_longitude,
-                              acc: day.check_in_accuracy,
-                              title: `${selectedEmpName} — Check-In (${day.date_short})`,
-                              time: day.check_in_time
-                            })}
-                            style={{
-                              background: 'rgba(56, 189, 248, 0.12)',
-                              border: '1px solid rgba(56, 189, 248, 0.3)',
-                              color: '#38bdf8',
-                              padding: '5px 10px',
-                              borderRadius: '8px',
-                              fontSize: '0.78rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            <MapPin size={13} /> View
-                          </button>
-                        ) : (
-                          <span style={{ color: '#64748b' }}>—</span>
-                        )}
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                          {day.check_in_latitude ? (
+                            <button
+                              onClick={() => setMapModal({
+                                open: true,
+                                lat: day.check_in_latitude,
+                                lng: day.check_in_longitude,
+                                acc: day.check_in_accuracy,
+                                title: `${selectedEmpName} — Check-In (${day.date_short})`,
+                                time: day.check_in_time
+                              })}
+                              style={{
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                border: '1px solid rgba(56, 189, 248, 0.3)',
+                                color: '#38bdf8',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              <MapPin size={12} /> View
+                            </button>
+                          ) : null}
+
+                          {day.ot_check_in_latitude && (
+                            <button
+                              onClick={() => setMapModal({
+                                open: true,
+                                lat: day.ot_check_in_latitude,
+                                lng: day.ot_check_in_longitude,
+                                acc: day.ot_check_in_accuracy,
+                                title: `${selectedEmpName} — OT Check-In (${day.date_short})`,
+                                time: day.ot_check_in_time
+                              })}
+                              style={{
+                                background: 'rgba(168, 85, 247, 0.15)',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                color: '#c084fc',
+                                padding: '3px 6px',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              <Moon size={10} /> OT In
+                            </button>
+                          )}
+
+                          {!day.check_in_latitude && !day.ot_check_in_latitude && (
+                            <span style={{ color: '#64748b' }}>—</span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Out Location */}
                       <td style={{ padding: '14px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                        {day.check_out_latitude ? (
-                          <button
-                            onClick={() => setMapModal({
-                              open: true,
-                              lat: day.check_out_latitude,
-                              lng: day.check_out_longitude,
-                              acc: day.check_out_accuracy,
-                              title: `${selectedEmpName} — Check-Out (${day.date_short})`,
-                              time: day.check_out_time
-                            })}
-                            style={{
-                              background: 'rgba(168, 85, 247, 0.12)',
-                              border: '1px solid rgba(168, 85, 247, 0.3)',
-                              color: '#c084fc',
-                              padding: '5px 10px',
-                              borderRadius: '8px',
-                              fontSize: '0.78rem',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            <MapPin size={13} /> View
-                          </button>
-                        ) : (
-                          <span style={{ color: '#64748b' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* Selfies */}
-                      <td style={{ padding: '14px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                        <div style={{ display: 'inline-flex', gap: '6px' }}>
-                          {day.check_in_selfie && (
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                          {day.check_out_latitude ? (
                             <button
-                              onClick={() => setSelfieModal({
+                              onClick={() => setMapModal({
                                 open: true,
-                                filename: day.check_in_selfie,
-                                title: `Check-In Selfie (${day.date_short})`,
-                                time: day.check_in_time,
-                                employeeName: selectedEmpName
+                                lat: day.check_out_latitude,
+                                lng: day.check_out_longitude,
+                                acc: day.check_out_accuracy,
+                                title: `${selectedEmpName} — Check-Out (${day.date_short})`,
+                                time: day.check_out_time
                               })}
-                              title="Check-In Selfie"
-                              style={{
-                                background: 'rgba(16, 185, 129, 0.12)',
-                                border: '1px solid rgba(16, 185, 129, 0.3)',
-                                color: '#34d399',
-                                padding: '5px 8px',
-                                borderRadius: '8px',
-                                fontSize: '0.78rem',
-                                fontWeight: 600,
-                                cursor: 'pointer'
-                              }}
-                            >
-                              📷 In
-                            </button>
-                          )}
-                          {day.check_out_selfie && (
-                            <button
-                              onClick={() => setSelfieModal({
-                                open: true,
-                                filename: day.check_out_selfie,
-                                title: `Check-Out Selfie (${day.date_short})`,
-                                time: day.check_out_time,
-                                employeeName: selectedEmpName
-                              })}
-                              title="Check-Out Selfie"
                               style={{
                                 background: 'rgba(168, 85, 247, 0.12)',
                                 border: '1px solid rgba(168, 85, 247, 0.3)',
                                 color: '#c084fc',
-                                padding: '5px 8px',
-                                borderRadius: '8px',
-                                fontSize: '0.78rem',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                fontSize: '0.76rem',
                                 fontWeight: 600,
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
                               }}
                             >
-                              📷 Out
+                              <MapPin size={12} /> View
+                            </button>
+                          ) : null}
+
+                          {day.ot_check_out_latitude && (
+                            <button
+                              onClick={() => setMapModal({
+                                open: true,
+                                lat: day.ot_check_out_latitude,
+                                lng: day.ot_check_out_longitude,
+                                acc: day.ot_check_out_accuracy,
+                                title: `${selectedEmpName} — OT Check-Out (${day.date_short})`,
+                                time: day.ot_check_out_time
+                              })}
+                              style={{
+                                background: 'rgba(168, 85, 247, 0.15)',
+                                border: '1px solid rgba(168, 85, 247, 0.3)',
+                                color: '#c084fc',
+                                padding: '3px 6px',
+                                borderRadius: '6px',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              <Moon size={10} /> OT Out
                             </button>
                           )}
-                          {!day.check_in_selfie && !day.check_out_selfie && (
+
+                          {!day.check_out_latitude && !day.ot_check_out_latitude && (
+                            <span style={{ color: '#64748b' }}>—</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Selfies */}
+                      <td style={{ padding: '14px 20px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '4px' }}>
+                            {day.check_in_selfie && (
+                              <button
+                                onClick={() => setSelfieModal({
+                                  open: true,
+                                  filename: day.check_in_selfie,
+                                  title: `Check-In Selfie (${day.date_short})`,
+                                  time: day.check_in_time,
+                                  employeeName: selectedEmpName
+                                })}
+                                title="Check-In Selfie"
+                                style={{
+                                  background: 'rgba(16, 185, 129, 0.12)',
+                                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                                  color: '#34d399',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                📷 In
+                              </button>
+                            )}
+                            {day.check_out_selfie && (
+                              <button
+                                onClick={() => setSelfieModal({
+                                  open: true,
+                                  filename: day.check_out_selfie,
+                                  title: `Check-Out Selfie (${day.date_short})`,
+                                  time: day.check_out_time,
+                                  employeeName: selectedEmpName
+                                })}
+                                title="Check-Out Selfie"
+                                style={{
+                                  background: 'rgba(168, 85, 247, 0.12)',
+                                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                                  color: '#c084fc',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.74rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                📷 Out
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'inline-flex', gap: '4px' }}>
+                            {day.ot_check_in_selfie && (
+                              <button
+                                onClick={() => setSelfieModal({
+                                  open: true,
+                                  filename: day.ot_check_in_selfie,
+                                  title: `OT Check-In Selfie (${day.date_short})`,
+                                  time: day.ot_check_in_time,
+                                  employeeName: selectedEmpName
+                                })}
+                                title="OT Check-In Selfie"
+                                style={{
+                                  background: 'rgba(168, 85, 247, 0.18)',
+                                  border: '1px solid rgba(168, 85, 247, 0.35)',
+                                  color: '#d8b4fe',
+                                  padding: '3px 6px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                🌙 OT In
+                              </button>
+                            )}
+                            {day.ot_check_out_selfie && (
+                              <button
+                                onClick={() => setSelfieModal({
+                                  open: true,
+                                  filename: day.ot_check_out_selfie,
+                                  title: `OT Check-Out Selfie (${day.date_short})`,
+                                  time: day.ot_check_out_time,
+                                  employeeName: selectedEmpName
+                                })}
+                                title="OT Check-Out Selfie"
+                                style={{
+                                  background: 'rgba(168, 85, 247, 0.18)',
+                                  border: '1px solid rgba(168, 85, 247, 0.35)',
+                                  color: '#d8b4fe',
+                                  padding: '3px 6px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                🌙 OT Out
+                              </button>
+                            )}
+                          </div>
+
+                          {!day.check_in_selfie && !day.check_out_selfie && !day.ot_check_in_selfie && !day.ot_check_out_selfie && (
                             <span style={{ color: '#64748b' }}>—</span>
                           )}
                         </div>
@@ -922,6 +1070,244 @@ export default function AdminAttendance() {
                   </div>
                 </div>
               </div>
+
+              {/* Overtime / Night Shift Verification Section */}
+              {(dayDetails.ot_check_in_time !== '—' || dayDetails.ot_work_minutes > 0 || dayDetails.ot_status === 'ACTIVE') && (
+                <div style={{
+                  background: '#0f172a',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Moon size={18} /> Overtime / Night Shift Verification
+                    </h3>
+                    <span style={{
+                      background: 'rgba(168, 85, 247, 0.15)',
+                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                      color: '#c084fc',
+                      padding: '2px 8px',
+                      borderRadius: '9999px',
+                      fontSize: '0.78rem',
+                      fontWeight: 700
+                    }}>
+                      {dayDetails.ot_status === 'ACTIVE' ? 'IN PROGRESS' : `${dayDetails.ot_duration_formatted || `${dayDetails.ot_work_minutes}m`} WORKED`}
+                    </span>
+                  </div>
+
+                  {/* Overtime Check-In */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderBottom: '1px solid rgba(255, 255, 255, 0.06)', paddingBottom: '14px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>
+                        OT Check-In ({dayDetails.ot_check_in_exact || dayDetails.ot_check_in_time})
+                      </div>
+                      {dayDetails.ot_check_in_latitude ? (
+                        <>
+                          <div style={{ fontSize: '0.85rem', color: '#f1f5f9', fontFamily: 'monospace' }}>
+                            Latitude: {Number(dayDetails.ot_check_in_latitude).toFixed(6)}<br />
+                            Longitude: {Number(dayDetails.ot_check_in_longitude).toFixed(6)}<br />
+                            Accuracy: {Number(dayDetails.ot_check_in_accuracy).toFixed(0)} meters
+                          </div>
+                          <button
+                            onClick={() => setMapModal({
+                              open: true,
+                              lat: dayDetails.ot_check_in_latitude,
+                              lng: dayDetails.ot_check_in_longitude,
+                              acc: dayDetails.ot_check_in_accuracy,
+                              title: `${selectedEmpName} — OT Check-In (${dayDetails.date_short})`,
+                              time: dayDetails.ot_check_in_time
+                            })}
+                            style={{
+                              alignSelf: 'flex-start',
+                              background: '#2563eb',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '8px 14px',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              cursor: 'pointer',
+                              marginTop: '6px'
+                            }}
+                          >
+                            <MapPin size={14} /> VIEW OT IN LOCATION
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>No OT check-in location recorded.</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>OT Check-In Selfie</div>
+                      {dayDetails.ot_check_in_selfie ? (
+                        <div
+                          onClick={() => setSelfieModal({
+                            open: true,
+                            filename: dayDetails.ot_check_in_selfie,
+                            title: `OT Check-In Selfie (${dayDetails.date_short})`,
+                            time: dayDetails.ot_check_in_time,
+                            employeeName: selectedEmpName
+                          })}
+                          style={{
+                            width: '120px',
+                            height: '120px',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            border: '2px solid rgba(168, 85, 247, 0.4)',
+                            cursor: 'pointer',
+                            position: 'relative'
+                          }}
+                        >
+                          <img
+                            src={getSelfieUrl(dayDetails.ot_check_in_selfie)}
+                            alt="OT Check-in selfie"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              if (e.currentTarget.nextSibling) {
+                                e.currentTarget.parentElement.style.display = 'flex';
+                                e.currentTarget.parentElement.style.alignItems = 'center';
+                                e.currentTarget.parentElement.style.justifyContent = 'center';
+                                e.currentTarget.parentElement.style.background = '#1e293b';
+                              }
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            opacity: 0,
+                            transition: 'opacity 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                          >
+                            <Eye size={20} />
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>No OT check-in selfie recorded.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Overtime Check-Out */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>
+                        OT Check-Out ({dayDetails.ot_check_out_exact || dayDetails.ot_check_out_time})
+                      </div>
+                      {dayDetails.ot_check_out_latitude ? (
+                        <>
+                          <div style={{ fontSize: '0.85rem', color: '#f1f5f9', fontFamily: 'monospace' }}>
+                            Latitude: {Number(dayDetails.ot_check_out_latitude).toFixed(6)}<br />
+                            Longitude: {Number(dayDetails.ot_check_out_longitude).toFixed(6)}<br />
+                            Accuracy: {Number(dayDetails.ot_check_out_accuracy).toFixed(0)} meters
+                          </div>
+                          <button
+                            onClick={() => setMapModal({
+                              open: true,
+                              lat: dayDetails.ot_check_out_latitude,
+                              lng: dayDetails.ot_check_out_longitude,
+                              acc: dayDetails.ot_check_out_accuracy,
+                              title: `${selectedEmpName} — OT Check-Out (${dayDetails.date_short})`,
+                              time: dayDetails.ot_check_out_time
+                            })}
+                            style={{
+                              alignSelf: 'flex-start',
+                              background: '#7c3aed',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '8px 14px',
+                              fontSize: '0.82rem',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              cursor: 'pointer',
+                              marginTop: '6px'
+                            }}
+                          >
+                            <MapPin size={14} /> VIEW OT OUT LOCATION
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>No OT check-out location recorded.</span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '0.82rem', color: '#94a3b8', fontWeight: 600 }}>OT Check-Out Selfie</div>
+                      {dayDetails.ot_check_out_selfie ? (
+                        <div
+                          onClick={() => setSelfieModal({
+                            open: true,
+                            filename: dayDetails.ot_check_out_selfie,
+                            title: `OT Check-Out Selfie (${dayDetails.date_short})`,
+                            time: dayDetails.ot_check_out_time,
+                            employeeName: selectedEmpName
+                          })}
+                          style={{
+                            width: '120px',
+                            height: '120px',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            border: '2px solid rgba(168, 85, 247, 0.4)',
+                            cursor: 'pointer',
+                            position: 'relative'
+                          }}
+                        >
+                          <img
+                            src={getSelfieUrl(dayDetails.ot_check_out_selfie)}
+                            alt="OT Check-out selfie"
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              if (e.currentTarget.nextSibling) {
+                                e.currentTarget.parentElement.style.display = 'flex';
+                                e.currentTarget.parentElement.style.alignItems = 'center';
+                                e.currentTarget.parentElement.style.justifyContent = 'center';
+                                e.currentTarget.parentElement.style.background = '#1e293b';
+                              }
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            background: 'rgba(0, 0, 0, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            opacity: 0,
+                            transition: 'opacity 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                          >
+                            <Eye size={20} />
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#64748b', fontSize: '0.85rem' }}>No OT check-out selfie recorded.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

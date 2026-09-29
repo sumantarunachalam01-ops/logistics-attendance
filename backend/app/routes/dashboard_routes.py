@@ -69,7 +69,23 @@ def get_today_dashboard():
             a.status AS raw_status,
             a.total_work_minutes,
             a.overtime_minutes,
-            a.remarks
+            a.remarks,
+            a.ot_check_in_time,
+            TIME_FORMAT(a.ot_check_in_time, '%%h:%%i %%p') AS ot_check_in_formatted,
+            TIME_FORMAT(a.ot_check_in_time, '%%h:%%i:%%s %%p') AS ot_check_in_exact,
+            a.ot_check_out_time,
+            TIME_FORMAT(a.ot_check_out_time, '%%h:%%i %%p') AS ot_check_out_formatted,
+            TIME_FORMAT(a.ot_check_out_time, '%%h:%%i:%%s %%p') AS ot_check_out_exact,
+            a.ot_check_in_latitude,
+            a.ot_check_in_longitude,
+            a.ot_check_in_accuracy,
+            a.ot_check_out_latitude,
+            a.ot_check_out_longitude,
+            a.ot_check_out_accuracy,
+            a.ot_check_in_selfie,
+            a.ot_check_out_selfie,
+            a.ot_work_minutes,
+            a.ot_status
         FROM employees e
         JOIN users u ON e.user_id = u.id
         LEFT JOIN attendance a ON e.id = a.employee_id AND a.attendance_date = %s
@@ -89,9 +105,22 @@ def get_today_dashboard():
         check_in = r.get('check_in_time')
         check_out = r.get('check_out_time')
         raw_status = r.get('raw_status')
+        ot_status = r.get('ot_status')
 
         # Determine user-friendly display status
-        if check_in and check_out:
+        if ot_status == 'ACTIVE':
+            display_status = 'OVERTIME_WORKING'
+            currently_working_count += 1
+            present_count += 1
+            ot_in = r.get('ot_check_in_time')
+            if ot_in:
+                if ot_in.tzinfo is None:
+                    ot_in = ot_in.replace(tzinfo=ZoneInfo(Config.TIMEZONE))
+                elapsed = max(0, int((now_ist - ot_in).total_seconds() // 60))
+            else:
+                elapsed = 0
+            hours_formatted = format_minutes_to_hm((r.get('total_work_minutes') or 0) + elapsed)
+        elif check_in and check_out:
             display_status = 'COMPLETED'
             completed_count += 1
             present_count += 1
@@ -130,6 +159,13 @@ def get_today_dashboard():
             'hours_formatted': hours_formatted,
             'total_work_minutes': r['total_work_minutes'] or 0,
             'overtime_formatted': format_minutes_to_hm(r['overtime_minutes']) if r['overtime_minutes'] else '—',
+            'ot_check_in_formatted': r['ot_check_in_formatted'] or '—',
+            'ot_check_in_exact': r['ot_check_in_exact'],
+            'ot_check_out_formatted': r['ot_check_out_formatted'] or '—',
+            'ot_check_out_exact': r['ot_check_out_exact'],
+            'ot_work_minutes': r['ot_work_minutes'] or 0,
+            'ot_duration_formatted': format_minutes_to_hm(r['ot_work_minutes']) if r['ot_work_minutes'] else '—',
+            'ot_status': ot_status,
             'check_in_latitude': r['check_in_latitude'],
             'check_in_longitude': r['check_in_longitude'],
             'check_in_accuracy': r['check_in_accuracy'],
@@ -138,6 +174,14 @@ def get_today_dashboard():
             'check_out_accuracy': r['check_out_accuracy'],
             'check_in_selfie': r['check_in_selfie'],
             'check_out_selfie': r['check_out_selfie'],
+            'ot_check_in_latitude': r['ot_check_in_latitude'],
+            'ot_check_in_longitude': r['ot_check_in_longitude'],
+            'ot_check_in_accuracy': r['ot_check_in_accuracy'],
+            'ot_check_out_latitude': r['ot_check_out_latitude'],
+            'ot_check_out_longitude': r['ot_check_out_longitude'],
+            'ot_check_out_accuracy': r['ot_check_out_accuracy'],
+            'ot_check_in_selfie': r['ot_check_in_selfie'],
+            'ot_check_out_selfie': r['ot_check_out_selfie'],
             'remarks': r['remarks']
         })
 
