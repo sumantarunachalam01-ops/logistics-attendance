@@ -49,17 +49,26 @@ export default function StaffAttendance() {
     fetchAttendance(currentMonth);
   }, [currentMonth]);
 
+  const isEarliestMonth = currentMonth <= '2026-09';
+  const now = new Date();
+  const maxMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const isLatestMonth = currentMonth >= maxMonth;
+
   const handlePrevMonth = () => {
+    if (isEarliestMonth) return;
     const [y, m] = currentMonth.split('-').map(Number);
     const prevDate = new Date(y, m - 2, 1);
     const newMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    if (newMonth < '2026-09') return;
     setCurrentMonth(newMonth);
   };
 
   const handleNextMonth = () => {
+    if (isLatestMonth) return;
     const [y, m] = currentMonth.split('-').map(Number);
     const nextDate = new Date(y, m, 1);
     const newMonth = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+    if (newMonth > maxMonth) return;
     setCurrentMonth(newMonth);
   };
 
@@ -107,13 +116,16 @@ export default function StaffAttendance() {
         }}>
           <button
             onClick={handlePrevMonth}
+            disabled={isEarliestMonth}
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#94a3b8',
-              cursor: 'pointer',
+              color: isEarliestMonth ? '#475569' : '#94a3b8',
+              cursor: isEarliestMonth ? 'not-allowed' : 'pointer',
+              opacity: isEarliestMonth ? 0.35 : 1,
               padding: '6px'
             }}
+            title={isEarliestMonth ? "September 2026 is the earliest available month" : "Previous Month"}
           >
             <ChevronLeft size={18} />
           </button>
@@ -122,13 +134,16 @@ export default function StaffAttendance() {
           </span>
           <button
             onClick={handleNextMonth}
+            disabled={isLatestMonth}
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#94a3b8',
-              cursor: 'pointer',
+              color: isLatestMonth ? '#475569' : '#94a3b8',
+              cursor: isLatestMonth ? 'not-allowed' : 'pointer',
+              opacity: isLatestMonth ? 0.35 : 1,
               padding: '6px'
             }}
+            title={isLatestMonth ? "You are on the current month" : "Next Month"}
           >
             <ChevronRight size={18} />
           </button>

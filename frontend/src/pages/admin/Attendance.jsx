@@ -33,11 +33,23 @@ export default function AdminAttendance() {
   const monthOptions = React.useMemo(() => {
     const options = [];
     const now = new Date();
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const minYear = 2026;
+    const minMonth = 9; // September 2026 is the absolute earliest month
+
+    let curYear = now.getFullYear();
+    let curMonth = now.getMonth() + 1;
+
+    while (curYear > minYear || (curYear === minYear && curMonth >= minMonth)) {
+      const d = new Date(curYear, curMonth - 1, 1);
+      const val = `${curYear}-${String(curMonth).padStart(2, '0')}`;
       const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       options.push({ value: val, label });
+
+      curMonth--;
+      if (curMonth < 1) {
+        curMonth = 12;
+        curYear--;
+      }
     }
     return options;
   }, []);
