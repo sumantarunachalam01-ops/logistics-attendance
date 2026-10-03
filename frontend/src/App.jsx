@@ -66,6 +66,54 @@ function StaffLayout({ children }) {
   );
 }
 
+// Server Warming Notification for Cloud Cold-Starts
+function ServerWarmingBanner() {
+  const [isWarming, setIsWarming] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleWarming = (e) => {
+      setIsWarming(Boolean(e.detail?.warming));
+    };
+    window.addEventListener('server-warming', handleWarming);
+    return () => window.removeEventListener('server-warming', handleWarming);
+  }, []);
+
+  if (!isWarming) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 14,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 99999,
+      background: 'rgba(15, 23, 42, 0.95)',
+      border: '1px solid rgba(56, 189, 248, 0.6)',
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 15px rgba(56, 189, 248, 0.3)',
+      backdropFilter: 'blur(12px)',
+      color: '#f8fafc',
+      padding: '8px 20px',
+      borderRadius: '9999px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      pointerEvents: 'none'
+    }}>
+      <div style={{
+        width: 14,
+        height: 14,
+        borderRadius: '50%',
+        border: '2px solid rgba(56, 189, 248, 0.3)',
+        borderTopColor: '#38bdf8',
+        animation: 'spin 0.8s linear infinite'
+      }} />
+      <span>⚡ Connecting to cloud server... Waking up service.</span>
+    </div>
+  );
+}
+
 // Root redirect handler
 function HomeRedirect() {
   const { user, isAuthenticated } = useAuth();
@@ -84,6 +132,7 @@ function HomeRedirect() {
 export default function App() {
   return (
     <AuthProvider>
+      <ServerWarmingBanner />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />

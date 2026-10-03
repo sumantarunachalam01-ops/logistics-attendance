@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from flask import Blueprint, request, g, send_from_directory, current_app, Response
 from werkzeug.utils import secure_filename
 from app.config import Config
-from app.db import query_one, query_all, execute, get_db_cursor
+from app.db import query_one, query_all, execute, get_db_cursor, ensure_selfie_table
 from app.utils.response import success_response, error_response
 from app.middleware.auth import jwt_required, role_required
 from app.middleware.audit import log_audit
@@ -34,18 +34,6 @@ def format_minutes_to_hm(minutes):
     m = total_m % 60
     return f"{h}h {m:02d}m"
 
-def ensure_selfie_table():
-    """Ensure that the persistent selfie_storage table exists in the database."""
-    try:
-        execute("""
-            CREATE TABLE IF NOT EXISTS selfie_storage (
-                filename VARCHAR(255) PRIMARY KEY,
-                image_data MEDIUMBLOB NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        """)
-    except Exception:
-        pass
 
 
 def save_selfie_payload(selfie_str, prefix="selfie"):

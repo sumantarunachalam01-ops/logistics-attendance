@@ -157,7 +157,7 @@ export default function AdminDashboard() {
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.9rem', marginTop: '4px' }}>
             <Calendar size={15} style={{ color: '#38bdf8' }} />
-            <span>{stats?.today_formatted || 'Sunday, September 6, 2026'}</span>
+            <span>{stats?.today_formatted || new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
             <span>•</span>
             <span>Live IST Roster</span>
           </div>

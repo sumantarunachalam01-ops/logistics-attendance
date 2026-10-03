@@ -25,7 +25,22 @@ export default function AdminAttendance() {
 
   const [employees, setEmployees] = useState([]);
   const [selectedEmpId, setSelectedEmpId] = useState(urlEmpId ? parseInt(urlEmpId) : null);
-  const [selectedMonth, setSelectedMonth] = useState('2026-09');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  const monthOptions = React.useMemo(() => {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      options.push({ value: val, label });
+    }
+    return options;
+  }, []);
 
   const [attendanceData, setAttendanceData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -251,10 +266,9 @@ export default function AdminAttendance() {
                 cursor: 'pointer'
               }}
             >
-              <option value="2026-09">September 2026</option>
-              <option value="2026-08">August 2026</option>
-              <option value="2026-07">July 2026</option>
-              <option value="2026-06">June 2026</option>
+              {monthOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -263,7 +277,7 @@ export default function AdminAttendance() {
       {/* Header Banner */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
         <h2 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#f8fafc' }}>
-          {selectedEmpName} — {attendanceData?.summary?.month_formatted || 'September 2026'}
+          {selectedEmpName} — {attendanceData?.summary?.month_formatted || monthOptions.find(o => o.value === selectedMonth)?.label || 'Current Month'}
         </h2>
         {attendanceData?.summary?.employee?.department && (
           <span style={{ fontSize: '0.9rem', color: '#38bdf8', fontWeight: 600 }}>

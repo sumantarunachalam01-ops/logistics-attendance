@@ -30,11 +30,22 @@ def get_selfie_storage_info():
     return total_bytes, file_count, size_mb
 
 
-def get_storage_stats():
+_cached_storage_stats = None
+_cached_storage_time = 0
+
+def get_storage_stats(force=False):
     """
     Calculate current storage usage, record counts, and date ranges.
     Returns status indicating whether cleanup is needed or if storage is healthy.
+    Cached for 10 minutes to avoid running COUNT(*) and filesystem scans on every selfie upload.
     """
+    global _cached_storage_stats, _cached_storage_time
+    import time
+
+    now = time.time()
+    if not force and _cached_storage_stats is not None and (now - _cached_storage_time) < 600:
+        return _cached_storage_stats
+
     record_stats = query_one("""
         SELECT 
             COUNT(*) AS total_records,
@@ -56,7 +67,7 @@ def get_storage_stats():
 
     is_near_full = used_percentage >= trigger_percent
 
-    return {
+    stats = {
         'policy': 'CLEANUP_ON_STORAGE_FULL_ONLY',
         'policy_description': 'Old records are permanently kept and only pruned when 5 GB cloud storage fills up',
         'total_records': total_records,
@@ -72,6 +83,10 @@ def get_storage_stats():
         'is_near_full': is_near_full,
         'status': 'FULL_CLEANUP_NEEDED' if is_near_full else 'HEALTHY'
     }
+
+    _cached_storage_stats = stats
+    _cached_storage_time = now
+    return stats
 
 
 def cleanup_oldest_batch_until_headroom(target_free_mb=DEFAULT_HEADROOM_MB, admin_user_id=None):

@@ -15,7 +15,10 @@ import {
 } from 'lucide-react';
 
 export default function StaffAttendance() {
-  const [currentMonth, setCurrentMonth] = useState('2026-09');
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [summary, setSummary] = useState(null);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
